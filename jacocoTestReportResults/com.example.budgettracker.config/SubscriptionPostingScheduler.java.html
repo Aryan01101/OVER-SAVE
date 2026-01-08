@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SubscriptionPostingScheduler.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">project</a> &gt; <a href="index.source.html" class="el_package">com.example.budgettracker.config</a> &gt; <span class="el_source">SubscriptionPostingScheduler.java</span></div><h1>SubscriptionPostingScheduler.java</h1><pre class="source lang-java linenums">// com/example/budgettracker/config/SubscriptionPostingScheduler.java
+package com.example.budgettracker.config;
+
+import com.example.budgettracker.model.*;
+import com.example.budgettracker.model.enums.AccountType;
+import com.example.budgettracker.model.enums.CashFlowType;
+import com.example.budgettracker.repository.AccountRepository;
+import com.example.budgettracker.repository.CashFlowRepository;
+import com.example.budgettracker.repository.CategoryRepository;
+import com.example.budgettracker.repository.SubscriptionRepository;
+import jakarta.transaction.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.List;
+
+@Component
+public class SubscriptionPostingScheduler {
+
+<span class="nc" id="L25">    private static final Logger log = LoggerFactory.getLogger(SubscriptionPostingScheduler.class);</span>
+<span class="nc" id="L26">    private static final ZoneId SYD = ZoneId.of(&quot;Australia/Sydney&quot;);</span>
+
+    private final SubscriptionRepository subscriptionRepository;
+    private final CashFlowRepository cashFlowRepository;
+    private final CategoryRepository categoryRepository;
+    private final AccountRepository accountRepository;
+
+    public SubscriptionPostingScheduler(SubscriptionRepository subscriptionRepository,
+                                        CashFlowRepository cashFlowRepository,
+                                        CategoryRepository categoryRepository,
+<span class="nc" id="L36">                                        AccountRepository accountRepository) {</span>
+<span class="nc" id="L37">        this.subscriptionRepository = subscriptionRepository;</span>
+<span class="nc" id="L38">        this.cashFlowRepository = cashFlowRepository;</span>
+<span class="nc" id="L39">        this.categoryRepository = categoryRepository;</span>
+<span class="nc" id="L40">        this.accountRepository = accountRepository;</span>
+<span class="nc" id="L41">    }</span>
+
+    /**
+     * Runs daily at 02:15 local time. Picks all active subscriptions with nextPostAt &lt;= today,
+     * posts an Expense CashFlow for each due posting (catching up if the app was down),
+     * and advances nextPostAt to the next future date.
+     */
+    @Transactional
+    @Scheduled(cron = &quot;0 15 2 * * *&quot;, zone = &quot;Australia/Sydney&quot;)
+    public void postDueSubscriptions() {
+<span class="nc" id="L51">        LocalDateTime today = LocalDateTime.now(SYD);</span>
+<span class="nc" id="L52">        List&lt;Subscription&gt; due = subscriptionRepository.findByIsActiveTrueAndNextPostAtLessThanEqual(today);</span>
+<span class="nc bnc" id="L53" title="All 2 branches missed.">        if (due.isEmpty()) {</span>
+<span class="nc" id="L54">            return;</span>
+        }
+
+<span class="nc" id="L57">        log.info(&quot;Posting due subscriptions: count={}&quot;, due.size());</span>
+
+<span class="nc bnc" id="L59" title="All 2 branches missed.">        for (Subscription s : due) {</span>
+<span class="nc" id="L60">            User user = s.getUser();</span>
+
+            // Ensure/resolve &quot;Subscriptions&quot; category for this user
+<span class="nc" id="L63">            Category subsCategory = categoryRepository</span>
+<span class="nc" id="L64">                    .findByUser_UserIdAndNameIgnoreCase(user.getUserId(), &quot;Subscriptions&quot;)</span>
+<span class="nc" id="L65">                    .orElseGet(() -&gt; {</span>
+<span class="nc" id="L66">                        Category c = new Category();</span>
+<span class="nc" id="L67">                        c.setUser(user);</span>
+<span class="nc" id="L68">                        c.setName(&quot;Subscriptions&quot;);</span>
+<span class="nc" id="L69">                        c.setSystem(true);</span>
+<span class="nc" id="L70">                        return categoryRepository.save(c);</span>
+                    });
+
+            // Resolve default CASH account (required by your domain)
+<span class="nc" id="L74">            Account cashAccount = accountRepository</span>
+<span class="nc" id="L75">                    .findFirstByUser_UserIdAndAccountType(user.getUserId(), AccountType.CASH)</span>
+<span class="nc" id="L76">                    .orElseThrow(() -&gt;</span>
+<span class="nc" id="L77">                            new IllegalStateException(&quot;No CASH account found for userId=&quot; + user.getUserId()));</span>
+
+            // Post one or more times if nextPostAt lags behind today
+<span class="nc" id="L80">            LocalDateTime postDate = s.getNextPostAt();</span>
+<span class="nc" id="L81">            int posted = 0;</span>
+<span class="nc bnc" id="L82" title="All 2 branches missed.">            while (!postDate.isAfter(today)) {</span>
+<span class="nc" id="L83">                CashFlow cf = new CashFlow();</span>
+<span class="nc" id="L84">                cf.setType(CashFlowType.Expense);</span>
+<span class="nc bnc" id="L85" title="All 2 branches missed.">                cf.setAmount(s.getAmount() != null ? s.getAmount() : BigDecimal.ZERO);</span>
+<span class="nc" id="L86">                cf.setOccurredAt(postDate);</span>
+<span class="nc" id="L87">                cf.setDescription(&quot;Subscription: &quot; + s.getMerchant());</span>
+<span class="nc" id="L88">                cf.setAccount(cashAccount);</span>
+<span class="nc" id="L89">                cf.setCategory(subsCategory);</span>
+<span class="nc" id="L90">                cashFlowRepository.save(cf);</span>
+
+<span class="nc" id="L92">                postDate = increment(postDate, s.getFrequency());</span>
+<span class="nc" id="L93">                posted++;</span>
+<span class="nc" id="L94">            }</span>
+
+<span class="nc" id="L96">            s.setNextPostAt(postDate); // push to first future date</span>
+            // JPA will auto-flush on tx end since the entity is managed
+<span class="nc" id="L98">            log.info(&quot;Posted {} time(s) for subId={} (merchant={}), nextPostAt -&gt; {}&quot;,</span>
+<span class="nc" id="L99">                    posted, s.getSubscriptionId(), s.getMerchant(), postDate);</span>
+<span class="nc" id="L100">        }</span>
+<span class="nc" id="L101">    }</span>
+
+    private LocalDateTime increment(LocalDateTime date, String freqRaw) {
+<span class="nc bnc" id="L104" title="All 2 branches missed.">        String f = (freqRaw == null ? &quot;&quot; : freqRaw.trim().toUpperCase());</span>
+<span class="nc bnc" id="L105" title="All 6 branches missed.">        return switch (f) {</span>
+<span class="nc" id="L106">            case &quot;WEEKLY&quot; -&gt; date.plusWeeks(1);</span>
+<span class="nc" id="L107">            case &quot;FORTNIGHTLY&quot; -&gt; date.plusWeeks(2);</span>
+<span class="nc" id="L108">            case &quot;QUARTERLY&quot; -&gt; date.plusMonths(3);</span>
+<span class="nc" id="L109">            case &quot;YEARLY&quot;, &quot;ANNUAL&quot;, &quot;ANNUALLY&quot; -&gt; date.plusYears(1);</span>
+<span class="nc" id="L110">            case &quot;MONTHLY&quot; -&gt; date.plusMonths(1);</span>
+<span class="nc" id="L111">            default -&gt; date.plusMonths(1); // safe fallback</span>
+        };
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

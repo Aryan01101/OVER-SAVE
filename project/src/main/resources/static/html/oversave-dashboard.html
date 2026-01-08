@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OVER-SAVE - Dashboard</title>
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
+</head>
+<body>
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="logo-section">
+            <div class="logo">
+                <span>💰</span><span>OVER-SAVE</span>
+            </div>
+        </div>
+        <nav class="nav-menu">
+            <a href="oversave-dashboard.html" class="nav-item active">Dashboard</a>
+            <a href="transactions_page.html" class="nav-item">Transactions</a>
+            <a href="budgets_page.html" class="nav-item">Budgets</a>
+            <a href="goals_page.html" class="nav-item">Goals</a>
+            <a href="subscriptions_page.html" class="nav-item">Subscriptions</a>
+            <a href="shopping_page.html" class="nav-item">Rewards Shop</a>
+            <a href="settings_page.html" class="nav-item">Settings</a>
+        </nav>
+    </aside>
+
+    <!-- Sidebar Toggle Button -->
+    <button class="sidebar-toggle" onclick="toggleSidebar()" title="Toggle Sidebar">
+        <span id="toggle-icon">☰</span>
+    </button>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <div class="welcome-text">
+                    <h1>Welcome back, <User>!</h1>
+                    
+                </div>
+            </div>
+            
+            <div class="header-actions">
+                <div class="budget-coin-balance" onclick="navigateToRewardsShop()" style="cursor: pointer;" title="Click to visit Rewards Shop">
+                    <span class="coin-icon">🪙</span>
+                    <span id="budget-coin-balance">0</span>
+                    <span>Budget Coins</span>
+                </div>
+
+                <div class="header-user-section">
+                    <div class="header-user-info">
+                        <div class="header-user-details">
+                            <div class="header-user-name">Loading...</div>
+                            <div class="header-user-email">Loading...</div>
+                        </div>
+                        <div class="header-user-avatar">??</div>
+                    </div>
+                    <button onclick="logout()" class="header-logout-btn" title="Logout">
+                        <span class="logout-icon">⏻</span>
+                        <span class="logout-text">Logout</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Dashboard Content -->
+        <div class="dashboard-content">
+            <!-- Stats Grid -->
+            <div class="stats-grid fade-load", id="dashboard-stats">
+                <div class="stat-card income">
+                    <div class="stat-header">
+                        <span class="stat-title">Total Income</span>
+                        <div class="stat-icon">📈</div>
+                    </div>
+                    <div class="stat-value" id="total-income"></div>
+                    <div class="stat-change" id="income-change-indicator" style="display: none;">
+                        <!-- <span>↑</span> +12% from last month -->
+                    </div>
+                </div>
+
+                <div class="stat-card expense">
+                    <div class="stat-header">
+                        <span class="stat-title">Total Expenses</span>
+                        <div class="stat-icon">📉</div>
+                    </div>
+                    <div class="stat-value" id="total-expenses"></div>
+                    <div class="stat-change" id="expense-change-indicator" style="display: none;">
+                        <!-- <span>↑</span> +5% from last month -->
+                    </div>
+                </div>
+
+                <div class="stat-card balance">
+                    <div class="stat-header">
+                        <span class="stat-title">Current Balance</span>
+                        <div class="stat-icon">💰</div>
+                    </div>
+                    <div class="stat-value" id="account-balance"></div>
+                    <div class="stat-change positive" id="savings-rate-indicator">
+                        <!-- <span>💰</span> <span id="savings-rate-text">0.0%</span> savings rate -->
+                    </div>
+                </div>
+
+                <div class="stat-card savings">
+                    <div class="stat-header">
+                        <span class="stat-title">Total Savings</span>
+                        <div class="stat-icon">🏆</div>
+                    </div>
+                    <div class="stat-value" id="total-savings"></div>
+                    <div class="stat-change positive" id="goals-progress-indicator">
+                        <!-- <span>🎯</span> <span id="goals-progress-text">0%</span> average goal progress -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Section -->
+            <div class="charts-section">
+                <!-- Spending Trend Chart -->
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3 class="chart-title">Spending Trend</h3>
+                        <div class="chart-filters">
+                            <button class="filter-btn active">Week</button>
+                            <button class="filter-btn">Month</button>
+                            <button class="filter-btn">Year</button>
+                        </div>
+                    </div>
+                    <div class="spending-chart loading">
+                        <div class="loading-message">📊 Loading spending trend...</div>
+                    </div>
+                </div>
+
+                <!-- Category Breakdown -->
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3 class="chart-title">Top Categories</h3>
+                    </div>
+                    <div class="category-list fade-load" id="budget-utilization-list">
+                        <div class="loading-message" style="text-align: center; padding: 2rem; color: #6b7280;">
+                            <!-- 📊 Loading top categories... -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Budget & Goals Section -->
+            <div class="budget-goals-section">
+                <!-- Budget Status -->
+                <div class="budget-card">
+                    <div class="chart-header">
+                        <h3 class="chart-title">Budget Status</h3>
+                        <a href="budgets_page.html" style="color: var(--primary); text-decoration: none; font-size: 0.875rem;">Manage</a>
+                    </div>
+                    
+                    <!-- Budget items will be loaded dynamically -->
+                    <div id="dashboard-budget-status" class="fade-load">
+                        <div class="loading-message" style="text-align: center; padding: 2rem; color: #6b7280;">
+                            <!-- 📊 Loading budget status... -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Savings Goals -->
+                <div class="goals-card">
+                    <div class="chart-header">
+                        <h3 class="chart-title">Savings Goals</h3>
+                        <a href="goals_page.html" style="color: var(--primary); text-decoration: none; font-size: 0.875rem;">Add Goal</a>
+                    </div>
+                
+                    <!-- Goals will be loaded dynamically -->
+                    <div id="dashboard-goals-container" class="fade-load">
+                        <div class="loading-message" style="text-align: center; padding: 2rem; color: #6b7280;">
+                            <!-- 🎯 Loading your savings goals... -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Transactions -->
+            <div class="transactions-section">
+                <div class="transactions-header">
+                    <h3 class="chart-title">Recent Transactions</h3>
+                    <a href="transactions_page.html" style="color: var(--primary); text-decoration: none; font-size: 0.875rem;">View All</a>
+                </div>
+            
+                <!-- Transactions will be loaded dynamically -->
+                <div id="dashboard-transactions-container" class="fade-load">
+                    <div class="loading-message" style="text-align: center; padding: 2rem; color: #6b7280;">
+                        <!-- 💳 Loading recent transactions... -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="../js/sidebar.js"></script>
+    <script src="../js/coin-system.js?v=3"></script>
+    <script src="../js/income-service.js"></script>
+    <script src="../js/expense-service.js"></script>
+    <script src="../js/budget-service.js?v=7"></script>
+    <script src="../js/goal-service.js"></script>
+    <script src="../js/dashboard-api.js"></script>
+    <script src="../js/dashboard.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/session-manager.js"></script>
+    <script src="../js/user-display.js"></script>
+    <script src="../js/fab-actions.js"></script>
+    <script src="../js/footer.js"></script>
+    <script>
+        // Check authentication on page load
+        document.addEventListener('DOMContentLoaded', async function() {
+            console.log('🔐 Dashboard loading - Checking authentication...');
+
+            // First check if token exists in localStorage
+            const sessionToken = localStorage.getItem('sessionToken');
+            console.log('🔐 Session Token in localStorage:', sessionToken ? sessionToken.substring(0, 10) + '...' : 'NULL');
+
+            if (!sessionToken) {
+                console.error('❌ No session token found - Redirecting to login');
+                window.location.href = '/html/login.html';
+                return;
+            }
+
+            // Then validate the session with backend
+            const isValid = await AuthManager.validateSession();
+            console.log('🔐 Session validation result:', isValid);
+
+            if (!isValid) {
+                console.warn('⚠️ Invalid session - Redirecting to login');
+                window.location.href = '/html/login.html';
+                return;
+            }
+
+            // Load user info
+            const userInfo = AuthManager.getUserInfo();
+            if (userInfo) {
+                // Update user display
+                const userNameElements = document.querySelectorAll('.user-name');
+                const userEmailElements = document.querySelectorAll('.user-email');
+                const welcomeText = document.querySelector('.welcome-text h1');
+                const userAvatar = document.querySelector('.user-avatar');
+
+                userNameElements.forEach(el => el.textContent = userInfo.firstName + ' ' + userInfo.lastName);
+                userEmailElements.forEach(el => el.textContent = userInfo.email);
+
+                if (welcomeText) {
+                    welcomeText.innerHTML = `Welcome back, ${userInfo.firstName}! 👋`;
+                }
+
+                if (userAvatar) {
+                    userAvatar.textContent = (userInfo.firstName.charAt(0) + userInfo.lastName.charAt(0)).toUpperCase();
+                }
+            }
+
+            // FR-14: Load dashboard data AFTER authentication is confirmed
+            console.log('✅ Authentication successful, loading dashboard data...');
+            setTimeout(() => {
+                loadDashboardData();
+                startDashboardRefresh();
+            }, 300);
+        });
+
+        // Add logout functionality
+        function logout() {
+            AuthManager.logout();
+        }
+    </script>
+
+</body>
+</html>

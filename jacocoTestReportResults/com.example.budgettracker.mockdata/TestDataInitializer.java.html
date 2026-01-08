@@ -1,0 +1,220 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TestDataInitializer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">project</a> &gt; <a href="index.source.html" class="el_package">com.example.budgettracker.mockdata</a> &gt; <span class="el_source">TestDataInitializer.java</span></div><h1>TestDataInitializer.java</h1><pre class="source lang-java linenums">package com.example.budgettracker.mockdata;
+
+import com.example.budgettracker.model.*;
+import com.example.budgettracker.model.enums.AccountType;
+import com.example.budgettracker.model.enums.CashFlowType;
+import com.example.budgettracker.repository.*;
+import jakarta.annotation.PostConstruct;
+import org.springframework.stereotype.Component;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.YearMonth;
+import java.util.List;
+
+@Component
+public class TestDataInitializer {
+    private final UserRepository userRepository;
+    private final AccountRepository accountRepository;
+    private final CategoryRepository categoryRepository;
+    private final CashFlowRepository cashFlowRepository;
+    private final CategoryBudgetRepository categoryBudgetRepository;
+    private final ItemRepository itemRepository;
+
+<span class="nc" id="L26">    public TestDataInitializer(UserRepository userRepository, AccountRepository accountRepository, CategoryRepository categoryRepository, CashFlowRepository cashFlowRepository, CategoryBudgetRepository categoryBudgetRepository, ItemRepository itemRepository) {</span>
+<span class="nc" id="L27">        this.userRepository = userRepository;</span>
+<span class="nc" id="L28">        this.accountRepository = accountRepository;</span>
+<span class="nc" id="L29">        this.categoryRepository = categoryRepository;</span>
+<span class="nc" id="L30">        this.cashFlowRepository = cashFlowRepository;</span>
+<span class="nc" id="L31">        this.categoryBudgetRepository = categoryBudgetRepository;</span>
+<span class="nc" id="L32">        this.itemRepository = itemRepository;</span>
+<span class="nc" id="L33">    }</span>
+
+    private void ensureItem(String name, long price, long stockQty) {
+<span class="nc" id="L36">        itemRepository.findByItemNameIgnoreCase(name)</span>
+<span class="nc" id="L37">                .orElseGet(() -&gt; itemRepository.save(Item.builder()</span>
+<span class="nc" id="L38">                        .itemName(name)</span>
+<span class="nc" id="L39">                        .price(price)</span>
+<span class="nc" id="L40">                        .stockQty(stockQty)</span>
+<span class="nc" id="L41">                        .build()));</span>
+<span class="nc" id="L42">    }</span>
+
+
+    private Category getOrCreateCategory(User user, String name, boolean system) {
+<span class="nc" id="L46">        return categoryRepository.findByUser_UserIdAndNameIgnoreCase(user.getUserId(), name)</span>
+<span class="nc" id="L47">                .map(c -&gt; {</span>
+<span class="nc bnc" id="L48" title="All 4 branches missed.">                    if (system &amp;&amp; !Boolean.TRUE.equals(c.isSystem())) {</span>
+<span class="nc" id="L49">                        c.setSystem(true);</span>
+<span class="nc" id="L50">                        return categoryRepository.save(c);</span>
+                    }
+<span class="nc" id="L52">                    return c;</span>
+                })
+<span class="nc" id="L54">                .orElseGet(() -&gt; {</span>
+<span class="nc" id="L55">                    Category c = new Category();</span>
+<span class="nc" id="L56">                    c.setUser(user);</span>
+<span class="nc" id="L57">                    c.setName(name);</span>
+<span class="nc" id="L58">                    c.setSystem(system);</span>
+<span class="nc" id="L59">                    return categoryRepository.save(c);</span>
+                });
+    }
+
+    private void ensureSystemCategoriesFor(User user) {
+<span class="nc" id="L64">        List&lt;String&gt; defaults = List.of(&quot;Food&quot;, &quot;Transport&quot;, &quot;Shopping&quot;, &quot;Utilities&quot;, &quot;Entertainment&quot;);</span>
+<span class="nc bnc" id="L65" title="All 2 branches missed.">        for (String n : defaults) {</span>
+<span class="nc" id="L66">            getOrCreateCategory(user, n, true);</span>
+<span class="nc" id="L67">        }</span>
+<span class="nc" id="L68">    }</span>
+
+    @PostConstruct
+    public void init() {
+<span class="nc" id="L72">        User savedUser = userRepository.findByEmail(&quot;test@example.com&quot;)</span>
+<span class="nc" id="L73">                .orElseGet(() -&gt; {</span>
+<span class="nc" id="L74">                    User newUser = new User();</span>
+<span class="nc" id="L75">                    newUser.setEmail(&quot;test@example.com&quot;);</span>
+<span class="nc" id="L76">                    newUser.setHashedPassword(&quot;hashed123&quot;);</span>
+<span class="nc" id="L77">                    newUser.setFirstName(&quot;Test&quot;);</span>
+<span class="nc" id="L78">                    newUser.setMiddleName(null);</span>
+<span class="nc" id="L79">                    newUser.setLastName(&quot;User&quot;);</span>
+<span class="nc" id="L80">                    newUser.setAllowNotificationEmail(false);</span>
+<span class="nc" id="L81">                    newUser.setBudgetCoin(0L);</span>
+<span class="nc" id="L82">                    return userRepository.save(newUser);</span>
+                });
+
+<span class="nc" id="L85">        Account cashAccount = accountRepository.findFirstByUser_UserIdAndAccountType(</span>
+<span class="nc" id="L86">                savedUser.getUserId(), AccountType.CASH</span>
+<span class="nc" id="L87">        ).orElseGet(() -&gt; {</span>
+<span class="nc" id="L88">            Account mockAccount = new Account();</span>
+<span class="nc" id="L89">            mockAccount.setName(&quot;Test Account&quot;);</span>
+<span class="nc" id="L90">            mockAccount.setAccountType(AccountType.CASH);</span>
+<span class="nc" id="L91">            mockAccount.setUser(savedUser);</span>
+<span class="nc" id="L92">            mockAccount.setBalance(BigDecimal.ZERO);</span>
+<span class="nc" id="L93">            accountRepository.save(mockAccount);</span>
+<span class="nc bnc" id="L94" title="All 2 branches missed.">            if (mockAccount.getAccountId() == null) {</span>
+<span class="nc" id="L95">                throw new IllegalStateException(&quot;Account id not generated after save()&quot;);</span>
+            }
+
+<span class="nc" id="L98">            CashFlow opening = new CashFlow();</span>
+<span class="nc" id="L99">            opening.setType(CashFlowType.Income);</span>
+<span class="nc" id="L100">            opening.setAmount(new BigDecimal(&quot;1000.00&quot;));</span>
+<span class="nc" id="L101">            opening.setOccurredAt(LocalDateTime.now());</span>
+<span class="nc" id="L102">            opening.setDescription(&quot;Opening Balance&quot;);</span>
+<span class="nc" id="L103">            opening.setAccount(mockAccount);</span>
+<span class="nc" id="L104">            cashFlowRepository.save(opening);</span>
+
+<span class="nc" id="L106">            return mockAccount;</span>
+        });
+
+
+<span class="nc" id="L110">        Account goalAccount = accountRepository.findFirstByUser_UserIdAndAccountType(</span>
+<span class="nc" id="L111">                savedUser.getUserId(), AccountType.GOAL</span>
+<span class="nc" id="L112">        ).orElseGet(() -&gt; {</span>
+<span class="nc" id="L113">            Account gAcc = new Account();</span>
+<span class="nc" id="L114">            gAcc.setUser(savedUser);</span>
+
+<span class="nc" id="L116">            gAcc.setName(&quot;Main Goal&quot;);</span>
+
+<span class="nc" id="L118">            gAcc.setAccountType(AccountType.GOAL);</span>
+<span class="nc" id="L119">            gAcc.setBalance(BigDecimal.ZERO);</span>
+<span class="nc" id="L120">            accountRepository.save(gAcc);</span>
+<span class="nc bnc" id="L121" title="All 2 branches missed.">            if (gAcc.getAccountId() == null) {</span>
+<span class="nc" id="L122">                throw new IllegalStateException(&quot;Goal account id not generated after save()&quot;);</span>
+            }
+<span class="nc" id="L124">            return gAcc;</span>
+        });
+
+
+<span class="nc" id="L128">        ensureSystemCategoriesFor(savedUser);</span>
+
+
+        // Categorized
+<span class="nc" id="L132">        Category play = getOrCreateCategory(savedUser, &quot;Play&quot;, false);</span>
+
+<span class="nc" id="L134">        Category food = categoryRepository</span>
+<span class="nc" id="L135">                .findByUser_UserIdAndNameIgnoreCase(savedUser.getUserId(), &quot;Food&quot;)</span>
+<span class="nc" id="L136">                .orElseThrow();</span>
+
+
+<span class="nc" id="L139">        YearMonth ym = YearMonth.now();</span>
+<span class="nc" id="L140">        categoryBudgetRepository.findByUser_UserIdAndCategory_CategoryIdAndYearMonth(</span>
+<span class="nc" id="L141">                        savedUser.getUserId(), play.getCategoryId(), ym.toString())</span>
+<span class="nc" id="L142">                .orElseGet(() -&gt; {</span>
+<span class="nc" id="L143">                    CategoryBudget cb = new CategoryBudget();</span>
+<span class="nc" id="L144">                    cb.setUser(savedUser);</span>
+<span class="nc" id="L145">                    cb.setCategory(play);</span>
+<span class="nc" id="L146">                    cb.setYearMonth(ym.toString());</span>
+<span class="nc" id="L147">                    cb.setAmount(new BigDecimal(&quot;200.00&quot;));</span>
+<span class="nc" id="L148">                    return categoryBudgetRepository.save(cb);</span>
+                });
+
+        // Current Month Budget for food
+<span class="nc" id="L152">        categoryBudgetRepository.findByUser_UserIdAndCategory_CategoryIdAndYearMonth(</span>
+<span class="nc" id="L153">                        savedUser.getUserId(), food.getCategoryId(), ym.toString())</span>
+<span class="nc" id="L154">                .orElseGet(() -&gt; {</span>
+<span class="nc" id="L155">                    CategoryBudget cb = new CategoryBudget();</span>
+<span class="nc" id="L156">                    cb.setUser(savedUser);</span>
+<span class="nc" id="L157">                    cb.setCategory(food);</span>
+<span class="nc" id="L158">                    cb.setYearMonth(ym.toString());</span>
+<span class="nc" id="L159">                    cb.setAmount(new BigDecimal(&quot;300.00&quot;));</span>
+<span class="nc" id="L160">                    return categoryBudgetRepository.save(cb);</span>
+                });
+
+        // Two expend records for the month
+<span class="nc" id="L164">        LocalDate start = ym.atDay(1);</span>
+<span class="nc" id="L165">        LocalDate end = ym.atEndOfMonth();</span>
+<span class="nc" id="L166">        LocalDateTime rangeStart = start.atStartOfDay();</span>
+<span class="nc" id="L167">        LocalDateTime rangeEnd = end.atTime(LocalTime.MAX);</span>
+<span class="nc" id="L168">        boolean hasThisMonthExpenses = cashFlowRepository</span>
+<span class="nc" id="L169">                .existsByAccount_User_UserIdAndOccurredAtBetween(</span>
+<span class="nc" id="L170">                        savedUser.getUserId(), rangeStart, rangeEnd);</span>
+
+<span class="nc bnc" id="L172" title="All 2 branches missed.">        if (!hasThisMonthExpenses) {</span>
+<span class="nc" id="L173">            CashFlow e1 = new CashFlow();</span>
+<span class="nc" id="L174">            e1.setType(CashFlowType.Expense);</span>
+<span class="nc" id="L175">            e1.setAmount(new BigDecimal(&quot;20.50&quot;));</span>
+<span class="nc" id="L176">            e1.setOccurredAt(ym.atDay(5).atStartOfDay());</span>
+<span class="nc" id="L177">            e1.setDescription(&quot;Coffee &amp; snacks&quot;);</span>
+<span class="nc" id="L178">            e1.setAccount(cashAccount);</span>
+<span class="nc" id="L179">            e1.setCategory(play);</span>
+
+<span class="nc" id="L181">            CashFlow e2 = new CashFlow();</span>
+<span class="nc" id="L182">            e2.setType(CashFlowType.Expense);</span>
+<span class="nc" id="L183">            e2.setAmount(new BigDecimal(&quot;45.00&quot;));</span>
+<span class="nc" id="L184">            e2.setOccurredAt(ym.atDay(12).atStartOfDay());</span>
+<span class="nc" id="L185">            e2.setDescription(&quot;Lunch&quot;);</span>
+<span class="nc" id="L186">            e2.setAccount(cashAccount);</span>
+<span class="nc" id="L187">            e2.setCategory(food);</span>
+
+<span class="nc" id="L189">            cashFlowRepository.saveAll(List.of(e1, e2));</span>
+        }
+
+<span class="nc" id="L192">        List.of(</span>
+<span class="nc" id="L193">                new Object[]{&quot;Spotify Premium&quot;, 450L, 250L},</span>
+<span class="nc" id="L194">                new Object[]{&quot;Adobe Creative Suite&quot;, 800L, 100L},</span>
+<span class="nc" id="L195">                new Object[]{&quot;Steam Wallet&quot;, 650L, 200L},</span>
+<span class="nc" id="L196">                new Object[]{&quot;Kindle Unlimited&quot;, 300L, 300L},</span>
+<span class="nc" id="L197">                new Object[]{&quot;Apple Music&quot;, 400L, 300L},</span>
+<span class="nc" id="L198">                new Object[]{&quot;NordVPN (1 Year)&quot;, 1200L, 150L},</span>
+<span class="nc" id="L199">                new Object[]{&quot;Starbucks Gift Card $10&quot;, 280L, 400L},</span>
+<span class="nc" id="L200">                new Object[]{&quot;McDonald's Voucher $15&quot;, 350L, 250L},</span>
+<span class="nc" id="L201">                new Object[]{&quot;Wireless Earbuds&quot;, 1800L, 80L},</span>
+<span class="nc" id="L202">                new Object[]{&quot;Phone Case Premium&quot;, 600L, 180L},</span>
+<span class="nc" id="L203">                new Object[]{&quot;Movie Tickets (2x)&quot;, 750L, 120L},</span>
+<span class="nc" id="L204">                new Object[]{&quot;Gym Day Pass&quot;, 200L, 220L},</span>
+<span class="nc" id="L205">                new Object[]{&quot;Bowling Night&quot;, 900L, 140L},</span>
+<span class="nc" id="L206">                new Object[]{&quot;OVER-SAVE Premium&quot;, 500L, 500L},</span>
+<span class="nc" id="L207">                new Object[]{&quot;Analytics Pack&quot;, 300L, 500L},</span>
+<span class="nc" id="L208">                new Object[]{&quot;Theme Pack&quot;, 250L, 500L},</span>
+<span class="nc" id="L209">                new Object[]{&quot;Gift Card&quot;, 100L, 400L},</span>
+<span class="nc" id="L210">                new Object[]{&quot;Coffee Mug&quot;, 50L, 600L},</span>
+<span class="nc" id="L211">                new Object[]{&quot;T-Shirt&quot;, 200L, 200L}</span>
+<span class="nc" id="L212">        ).forEach(entry -&gt; ensureItem((String) entry[0], (Long) entry[1], (Long) entry[2]));</span>
+
+<span class="nc" id="L214">        System.out.println(&quot;✅ Mock User ID: &quot; + savedUser.getUserId());</span>
+<span class="nc" id="L215">        System.out.println(&quot;✅ Mock Cash Account ID: &quot; + cashAccount.getAccountId());</span>
+<span class="nc" id="L216">        System.out.println(&quot;✅ Category(Play) ID: &quot; + play.getCategoryId());</span>
+<span class="nc" id="L217">        System.out.println(&quot;✅ Mock Goal Account ID: &quot; + goalAccount.getAccountId());</span>
+<span class="nc" id="L218">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

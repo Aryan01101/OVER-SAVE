@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>OVER-SAVE - Subscriptions</title>
+    <link rel="stylesheet" href="../css/common.css"/>
+    <link rel="stylesheet" href="../css/subscriptions.css"/>
+</head>
+<body>
+
+<!-- Sidebar -->
+<aside class="sidebar">
+    <div class="logo-section">
+        <div class="logo">
+            <span>💰</span><span>OVER-SAVE</span>
+        </div>
+    </div>
+    <nav class="nav-menu">
+        <a href="oversave-dashboard.html" class="nav-item">Dashboard</a>
+        <a href="transactions_page.html" class="nav-item">Transactions</a>
+        <a href="budgets_page.html" class="nav-item">Budgets</a>
+        <a href="goals_page.html" class="nav-item">Goals</a>
+        <a href="subscriptions_page.html" class="nav-item active">Subscriptions</a>
+        <a href="shopping_page.html" class="nav-item">Rewards Shop</a>
+        <a href="settings_page.html" class="nav-item">Settings</a>
+    </nav>
+</aside>
+
+<!-- Sidebar Toggle Button -->
+<button class="sidebar-toggle" title="Toggle Sidebar">
+    <span id="toggle-icon">☰</span>
+</button>
+
+<!-- Main Content -->
+<main class="main-content">
+    <!-- Header -->
+    <header class="header">
+        <div class="header-left">
+            <h1>Subscriptions</h1>
+        </div>
+
+        <div class="header-actions">
+            <div class="budget-coin-balance" onclick="navigateToRewardsShop()" style="cursor: pointer;" title="Click to visit Rewards Shop">
+                <span class="coin-icon">🪙</span>
+                <span id="budget-coin-balance">0</span>
+                <span>Budget Coins</span>
+            </div>
+
+            <div class="header-user-section">
+                <div class="header-user-info">
+                    <div class="header-user-details">
+                        <div class="header-user-name">Loading...</div>
+                        <div class="header-user-email">Loading...</div>
+                    </div>
+                    <div class="header-user-avatar">??</div>
+                </div>
+                <button class="header-logout-btn" title="Logout">
+                    <span class="logout-icon">⏻</span>
+                    <span class="logout-text">Logout</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Subscriptions Content -->
+    <div class="subscriptions-content">
+        <!-- Summary -->
+        <div class="summary-grid">
+            <div class="summary-card total">
+                <div class="summary-icon">💰</div>
+                <div class="summary-value"></div>
+                <div class="summary-label">Monthly Total</div>
+            </div>
+            <div class="summary-card active">
+                <div class="summary-icon">✅</div>
+                <div class="summary-value"></div>
+                <div class="summary-label">Active Services</div>
+            </div>
+            <div class="summary-card upcoming">
+                <div class="summary-icon">⏰</div>
+                <div class="summary-value"></div>
+                <div class="summary-label">Due This Week</div>
+            </div>
+            <div class="summary-card saved">
+                <div class="summary-icon">💡</div>
+                <div class="summary-value"></div>
+                <div class="summary-label">Potential Savings</div>
+            </div>
+        </div>
+
+        <!-- Alerts (optional dynamic space) -->
+        <div id="subs-alerts" style="margin-bottom: 1.5rem;"></div>
+
+        <!-- Main Layout -->
+        <div class="subscriptions-main">
+            <!-- Subscriptions List -->
+            <div class="subscriptions-list-card">
+                <div class="list-header">
+                    <h3>My Subscriptions</h3>
+                    <div class="filter-tabs">
+                        <button class="filter-btn active" data-filter="all">All</button>
+                        <button class="filter-btn" data-filter="active">Active</button>
+                        <button class="filter-btn" data-filter="paused">Paused</button>
+                    </div>
+                </div>
+
+                <div id="subscriptions-list"></div>
+            </div>
+
+            <!-- Sidebar Panel -->
+            <div style="display:flex;flex-direction:column;gap:1.5rem;">
+                <!-- Add Subscription -->
+                <div class="add-subscription-card">
+                    <h3 style="margin-bottom:1.5rem;">Add New Subscription</h3>
+
+                    <form id="add-subscription-form">
+                        <div class="form-group">
+                            <label class="form-label">Service Name</label>
+                            <input type="text" class="form-control" id="service-name" placeholder="e.g., Netflix, Spotify..." required/>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Cost</label>
+                            <div class="currency-input-group">
+                                <span class="currency-symbol">$</span>
+                                <input type="number" class="form-control currency-input" id="service-cost" placeholder="0.00" step="0.01" min="0.01" required/>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Billing Frequency</label>
+                            <select class="form-control" id="billing-frequency">
+                                <option value="monthly">Monthly</option>
+                                <option value="weekly">Weekly</option>
+                                <option value="fortnightly">Fortnightly</option>
+                                <option value="quarterly">Quarterly</option>
+                                <option value="yearly">Yearly</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Next Billing Date</label>
+                            <input type="date" class="form-control" id="billing-date" required/>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary" style="width:100%;">💾 Add Subscription</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Upcoming Renewals -->
+        <div class="renewals-section">
+            <h3 style="margin-bottom:1rem;">Upcoming Renewals</h3>
+            <div id="renewals-list"></div>
+        </div>
+    </div>
+</main>
+
+<!-- Add Subscription Modal (optional; your page already has a sidebar form) -->
+<div class="modal" id="addModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 class="modal-title">Add New Subscription</h3>
+            <button class="close-btn" aria-label="Close">&times;</button>
+        </div>
+
+        <form id="modal-subscription-form">
+            <div class="form-group">
+                <label class="form-label">Service Name</label>
+                <input type="text" class="form-control" placeholder="Netflix, Spotify, etc." required/>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Cost</label>
+                <div class="currency-input-group">
+                    <span class="currency-symbol">$</span>
+                    <input type="number" class="form-control currency-input" placeholder="0.00" step="0.01" min="0.01" required/>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Billing Cycle</label>
+                <select class="form-control">
+                    <option value="monthly">Monthly</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="fortnightly">Fortnightly</option>
+                    <option value="quarterly">Quarterly</option>
+                    <option value="yearly">Yearly</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">First Billing Date</label>
+                <input type="date" class="form-control" required/>
+            </div>
+
+            <div style="display:flex;gap:1rem;margin-top:2rem;">
+                <button type="button" class="btn btn-secondary" style="flex:1;">Cancel</button>
+                <button type="submit" class="btn btn-primary" style="flex:1;">💾 Add Subscription</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Scripts -->
+<script src="../js/sidebar.js" defer></script>
+<script src="../js/coin-system.js" defer></script>
+<script src="../js/auth.js" defer></script>
+<script src="../js/subscriptions.js" defer></script>
+<script src="../js/user-display.js" defer></script>
+<script src="../js/footer.js"></script>
+<script src="../js/fab-actions.js"></script>
+
+</body>
+</html>

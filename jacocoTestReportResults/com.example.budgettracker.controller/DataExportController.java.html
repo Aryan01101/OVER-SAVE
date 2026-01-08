@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DataExportController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">project</a> &gt; <a href="index.source.html" class="el_package">com.example.budgettracker.controller</a> &gt; <span class="el_source">DataExportController.java</span></div><h1>DataExportController.java</h1><pre class="source lang-java linenums">package com.example.budgettracker.controller;
+
+import com.example.budgettracker.model.CashFlow;
+import com.example.budgettracker.repository.CashFlowRepository;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.web.bind.annotation.*;
+
+import java.io.PrintWriter;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+
+@RestController
+@RequestMapping(&quot;/api/export&quot;)
+<span class="nc" id="L18">public class DataExportController {</span>
+
+    @Autowired
+    private CashFlowRepository cashFlowRepository;
+
+    @GetMapping(value = &quot;/transactions&quot;, produces = &quot;text/csv&quot;)
+    public void exportTransactions(HttpServletResponse response,
+            @RequestParam Long userId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate)
+            throws Exception {
+
+<span class="nc" id="L30">        response.setContentType(&quot;text/csv&quot;);</span>
+<span class="nc" id="L31">        response.setCharacterEncoding(StandardCharsets.UTF_8.name());</span>
+<span class="nc" id="L32">        response.setHeader(&quot;Content-Disposition&quot;, &quot;attachment; filename=\&quot;transactions.csv\&quot;&quot;);</span>
+
+<span class="nc bnc" id="L34" title="All 2 branches missed.">        LocalDateTime start = (startDate != null) ? startDate : LocalDateTime.of(2000, 1, 1, 0, 0);</span>
+<span class="nc bnc" id="L35" title="All 2 branches missed.">        LocalDateTime end = (endDate != null) ? endDate : LocalDateTime.now();</span>
+
+<span class="nc" id="L37">        List&lt;CashFlow&gt; records = cashFlowRepository.findByUserIdAndDateRange(userId, start, end);</span>
+
+<span class="nc" id="L39">        try (PrintWriter writer = response.getWriter()) {</span>
+<span class="nc" id="L40">            writer.println(&quot;ID,Type,Description,Category,Amount,Date&quot;);</span>
+<span class="nc bnc" id="L41" title="All 2 branches missed.">            for (CashFlow c : records) {</span>
+<span class="nc" id="L42">                writer.printf(&quot;%d,%s,%s,%s,%.2f,%s%n&quot;,</span>
+<span class="nc" id="L43">                        c.getCashFlowId(),</span>
+<span class="nc" id="L44">                        c.getType(),</span>
+<span class="nc" id="L45">                        sanitize(c.getDescription()),</span>
+<span class="nc bnc" id="L46" title="All 2 branches missed.">                        (c.getCategory() != null ? c.getCategory().getName() : &quot;&quot;),</span>
+<span class="nc" id="L47">                        c.getAmount(),</span>
+<span class="nc" id="L48">                        c.getOccurredAt());</span>
+<span class="nc" id="L49">            }</span>
+        }
+<span class="nc" id="L51">    }</span>
+
+    private String sanitize(String text) {
+<span class="nc bnc" id="L54" title="All 2 branches missed.">        return text == null ? &quot;&quot; : text.replace(&quot;,&quot;, &quot; &quot;);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

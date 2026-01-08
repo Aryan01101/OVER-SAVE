@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>StaticController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">project</a> &gt; <a href="index.source.html" class="el_package">com.example.budgettracker.controller</a> &gt; <span class="el_source">StaticController.java</span></div><h1>StaticController.java</h1><pre class="source lang-java linenums">package com.example.budgettracker.controller;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+<span class="nc" id="L10">public class StaticController {</span>
+
+    @GetMapping(&quot;/favicon.ico&quot;)
+    public ResponseEntity&lt;Void&gt; favicon() {
+        // Return 204 No Content instead of 500 error
+<span class="nc" id="L15">        return ResponseEntity.status(HttpStatus.NO_CONTENT).build();</span>
+    }
+}
+
+/**
+ * Redirect controller for backward compatibility
+ * Redirects old root-level HTML paths to new /html/ directory
+ */
+@Controller
+<span class="nc" id="L24">class HtmlRedirectController {</span>
+
+    @GetMapping(&quot;/&quot;)
+    public String redirectRoot() {
+<span class="nc" id="L28">        return &quot;redirect:/html/login.html&quot;;</span>
+    }
+
+    @GetMapping(&quot;/index.html&quot;)
+    public String redirectIndex() {
+<span class="nc" id="L33">        return &quot;redirect:/html/login.html&quot;;</span>
+    }
+
+    @GetMapping(&quot;/login.html&quot;)
+    public String redirectLogin() {
+<span class="nc" id="L38">        return &quot;redirect:/html/login.html&quot;;</span>
+    }
+
+    @GetMapping(&quot;/signup.html&quot;)
+    public String redirectSignup() {
+<span class="nc" id="L43">        return &quot;redirect:/html/signup.html&quot;;</span>
+    }
+
+    @GetMapping(&quot;/oversave-dashboard.html&quot;)
+    public String redirectDashboard() {
+<span class="nc" id="L48">        return &quot;redirect:/html/oversave-dashboard.html&quot;;</span>
+    }
+
+    @GetMapping(&quot;/transactions_page.html&quot;)
+    public String redirectTransactions() {
+<span class="nc" id="L53">        return &quot;redirect:/html/transactions_page.html&quot;;</span>
+    }
+
+    @GetMapping(&quot;/budgets_page.html&quot;)
+    public String redirectBudgets() {
+<span class="nc" id="L58">        return &quot;redirect:/html/budgets_page.html&quot;;</span>
+    }
+
+    @GetMapping(&quot;/goals_page.html&quot;)
+    public String redirectGoals() {
+<span class="nc" id="L63">        return &quot;redirect:/html/goals_page.html&quot;;</span>
+    }
+
+    @GetMapping(&quot;/subscriptions_page.html&quot;)
+    public String redirectSubscriptions() {
+<span class="nc" id="L68">        return &quot;redirect:/html/subscriptions_page.html&quot;;</span>
+    }
+
+    @GetMapping(&quot;/shopping_page.html&quot;)
+    public String redirectShopping() {
+<span class="nc" id="L73">        return &quot;redirect:/html/shopping_page.html&quot;;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

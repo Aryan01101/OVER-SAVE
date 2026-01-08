@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ExpenseServiceImpl.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">project</a> &gt; <a href="index.source.html" class="el_package">com.example.budgettracker.service</a> &gt; <span class="el_source">ExpenseServiceImpl.java</span></div><h1>ExpenseServiceImpl.java</h1><pre class="source lang-java linenums">package com.example.budgettracker.service;
+
+import com.example.budgettracker.dto.ExpenseRequest;
+import com.example.budgettracker.dto.ExpenseResponse;
+import com.example.budgettracker.model.Account;
+import com.example.budgettracker.model.CashFlow;
+import com.example.budgettracker.model.Category;
+import com.example.budgettracker.model.enums.CashFlowType;
+import com.example.budgettracker.repository.CashFlowRepository;
+import com.example.budgettracker.repository.AccountRepository;
+import com.example.budgettracker.repository.CategoryRepository;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+public class ExpenseServiceImpl implements ExpenseService {
+
+    private final CashFlowRepository cashFlowRepository;
+    private final AccountRepository accountRepository;
+    private final CategoryRepository categoryRepository;
+
+    public ExpenseServiceImpl(CashFlowRepository cashFlowRepository,
+                              AccountRepository accountRepository,
+<span class="fc" id="L26">                              CategoryRepository categoryRepository) {</span>
+<span class="fc" id="L27">        this.cashFlowRepository = cashFlowRepository;</span>
+<span class="fc" id="L28">        this.accountRepository = accountRepository;</span>
+<span class="fc" id="L29">        this.categoryRepository = categoryRepository;</span>
+<span class="fc" id="L30">    }</span>
+
+    /**
+     * FR-7: Record expense transaction with user validation
+     * 1. Validate inputs (handled by Bean Validation + business rules)
+     * 2. Verify account ownership (security check)
+     * 3. Verify category exists and is active
+     * 4. Verify account belongs to user
+     * 5. Save expense record
+     * 6. Update account balance
+     * 7. Return confirmation
+     */
+    @Override
+    @Transactional
+    public ExpenseResponse recordExpense(Long userId, ExpenseRequest request) {
+
+        // Find target account
+<span class="fc" id="L47">        Account account = accountRepository.findById(request.getAccountId())</span>
+<span class="fc" id="L48">                .orElseThrow(() -&gt; new RuntimeException(&quot;Account not found&quot;));</span>
+
+        // SECURITY: Validate that the account belongs to the authenticated user
+<span class="pc bpc" id="L51" title="1 of 2 branches missed.">        if (!account.getUser().getUserId().equals(userId)) {</span>
+<span class="nc" id="L52">            throw new RuntimeException(&quot;Unauthorized: You do not have permission to access this account&quot;);</span>
+        }
+
+
+<span class="fc" id="L56">        Category category = null;</span>
+<span class="fc bfc" id="L57" title="All 2 branches covered.">        if (request.getCategoryId() != null) {</span>
+<span class="fc" id="L58">            category = categoryRepository.findById(request.getCategoryId())</span>
+<span class="fc" id="L59">                    .orElseThrow(() -&gt; new RuntimeException(&quot;Category not found&quot;));</span>
+        }
+
+        // Note: As a budget tracker (not a real bank), we allow negative balances
+        // This lets users track expenses even without income - balance will just show negative
+
+        // Create expense transaction
+<span class="fc" id="L66">        CashFlow cashFlow = CashFlow.builder()</span>
+<span class="fc" id="L67">                .type(CashFlowType.Expense)</span>
+<span class="fc" id="L68">                .amount(request.getAmount())</span>
+<span class="fc" id="L69">                .occurredAt(request.getOccurredAt())</span>
+<span class="fc" id="L70">                .description(request.getDescription())</span>
+<span class="fc" id="L71">                .account(account)</span>
+<span class="fc" id="L72">                .category(category)</span>
+<span class="fc" id="L73">                .build();</span>
+
+        // Update account balance (subtract expense)
+<span class="fc" id="L76">        account.setBalance(account.getBalance().subtract(request.getAmount()));</span>
+<span class="fc" id="L77">        accountRepository.save(account);</span>
+
+        // Save transaction
+<span class="fc" id="L80">        CashFlow saved = cashFlowRepository.save(cashFlow);</span>
+
+        // Return success response
+<span class="fc" id="L83">        return ExpenseResponse.builder()</span>
+<span class="fc" id="L84">                .message(&quot;Expense successfully recorded.&quot;)</span>
+<span class="fc" id="L85">                .amount(saved.getAmount())</span>
+<span class="fc" id="L86">                .occurredAt(saved.getOccurredAt())</span>
+<span class="fc" id="L87">                .createdAt(saved.getCreatedAt())</span>
+<span class="fc" id="L88">                .description(saved.getDescription())</span>
+<span class="fc bfc" id="L89" title="All 2 branches covered.">                .categoryName(category != null ? category.getName() : &quot;Uncategorized&quot;)</span>
+<span class="fc" id="L90">                .updatedBalance(account.getBalance())</span>
+<span class="fc" id="L91">                .build();</span>
+    }
+
+    @Override
+    public List&lt;ExpenseResponse&gt; getAllExpenses(Long userId) {
+
+        // Get all cash flows for the user and filter by Expense type
+<span class="fc" id="L98">        List&lt;CashFlow&gt; expenseTransactions = cashFlowRepository.findRecentByUserId(userId).stream()</span>
+<span class="pc bpc" id="L99" title="1 of 2 branches missed.">                .filter(cf -&gt; cf.getType() == CashFlowType.Expense)</span>
+<span class="fc" id="L100">                .collect(Collectors.toList());</span>
+
+
+<span class="fc" id="L103">        return expenseTransactions.stream()</span>
+<span class="fc" id="L104">                .map(this::mapToExpenseResponse)</span>
+<span class="fc" id="L105">                .collect(Collectors.toList());</span>
+    }
+
+    private ExpenseResponse mapToExpenseResponse(CashFlow cashFlow) {
+<span class="fc" id="L109">        return ExpenseResponse.builder()</span>
+<span class="fc" id="L110">                .amount(cashFlow.getAmount())</span>
+<span class="fc" id="L111">                .occurredAt(cashFlow.getOccurredAt())</span>
+<span class="fc" id="L112">                .createdAt(cashFlow.getCreatedAt())</span>
+<span class="fc" id="L113">                .description(cashFlow.getDescription())</span>
+<span class="fc bfc" id="L114" title="All 2 branches covered.">                .categoryName(cashFlow.getCategory() != null ? cashFlow.getCategory().getName() : &quot;Uncategorized&quot;)</span>
+<span class="fc" id="L115">                .updatedBalance(cashFlow.getAccount().getBalance())</span>
+<span class="fc" id="L116">                .build();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

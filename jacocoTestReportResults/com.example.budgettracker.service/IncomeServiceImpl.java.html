@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>IncomeServiceImpl.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">project</a> &gt; <a href="index.source.html" class="el_package">com.example.budgettracker.service</a> &gt; <span class="el_source">IncomeServiceImpl.java</span></div><h1>IncomeServiceImpl.java</h1><pre class="source lang-java linenums">package com.example.budgettracker.service;
+
+import com.example.budgettracker.dto.IncomeRequest;
+import com.example.budgettracker.dto.IncomeResponse;
+import com.example.budgettracker.model.Account;
+import com.example.budgettracker.model.CashFlow;
+import com.example.budgettracker.model.enums.CashFlowType;
+import com.example.budgettracker.model.Category;
+import com.example.budgettracker.repository.CategoryRepository;
+import com.example.budgettracker.repository.CashFlowRepository;
+import com.example.budgettracker.repository.AccountRepository;
+import com.example.budgettracker.service.IncomeService;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+public class IncomeServiceImpl implements IncomeService {
+
+    private final CashFlowRepository cashFlowRepository;
+    private final AccountRepository accountRepository;
+    private final CategoryRepository categoryRepository;
+
+    public IncomeServiceImpl(CashFlowRepository cashFlowRepository,
+                             AccountRepository accountRepository,
+<span class="fc" id="L27">                             CategoryRepository categoryRepository) {</span>
+<span class="fc" id="L28">        this.cashFlowRepository = cashFlowRepository;</span>
+<span class="fc" id="L29">        this.accountRepository = accountRepository;</span>
+<span class="fc" id="L30">        this.categoryRepository = categoryRepository;</span>
+<span class="fc" id="L31">    }</span>
+
+    /**
+     * FR-8: Record income transaction
+     * 1. Validate inputs (handled by Bean Validation)
+     * 2. Verify account belongs to user
+     * 3. Save income record
+     * 4. Update account balance
+     * 5. Return confirmation
+     */
+    @Override
+    @Transactional
+    public IncomeResponse recordIncome(Long userId, IncomeRequest request) {
+        // Find target account and verify it belongs to the user
+<span class="fc" id="L45">        Account account = accountRepository.findById(request.getAccountId())</span>
+<span class="fc" id="L46">                .orElseThrow(() -&gt; new RuntimeException(&quot;Account not found&quot;));</span>
+
+        // Security check: Ensure account belongs to the authenticated user
+<span class="pc bpc" id="L49" title="1 of 2 branches missed.">        if (!account.getUser().getUserId().equals(userId)) {</span>
+<span class="nc" id="L50">            throw new RuntimeException(&quot;Unauthorized: Account does not belong to user&quot;);</span>
+        }
+
+<span class="fc" id="L53">        Category category = null;</span>
+<span class="fc bfc" id="L54" title="All 2 branches covered.">        if (request.getCategoryId() != null) {</span>
+<span class="fc" id="L55">            category = categoryRepository.findById(request.getCategoryId())</span>
+<span class="pc" id="L56">                    .orElseThrow(() -&gt; new IllegalArgumentException(&quot;Category not found&quot;));</span>
+<span class="pc bpc" id="L57" title="1 of 2 branches missed.">            if (!category.getUser().getUserId().equals(userId)) {</span>
+<span class="nc" id="L58">                throw new IllegalStateException(&quot;Forbidden: Category does not belong to user&quot;);</span>
+            }
+        }
+
+        // Create income transaction
+<span class="fc" id="L63">        CashFlow cashFlow = CashFlow.builder()</span>
+<span class="fc" id="L64">                .type(CashFlowType.Income)</span>
+<span class="fc" id="L65">                .amount(request.getAmount())</span>
+<span class="fc" id="L66">                .occurredAt(request.getOccurredAt())</span>
+<span class="fc" id="L67">                .description(request.getDescription())</span>
+<span class="fc" id="L68">                .account(account)</span>
+<span class="fc" id="L69">                .category(category)</span>
+<span class="fc" id="L70">                .build();</span>
+
+        // Update account balance
+<span class="fc" id="L73">        account.setBalance(account.getBalance().add(request.getAmount()));</span>
+<span class="fc" id="L74">        accountRepository.save(account);</span>
+
+        // Save transaction
+<span class="fc" id="L77">        CashFlow saved = cashFlowRepository.save(cashFlow);</span>
+
+        // Return success response
+<span class="fc" id="L80">        return IncomeResponse.builder()</span>
+<span class="fc" id="L81">                .message(&quot;Income successfully recorded.&quot;)</span>
+<span class="fc" id="L82">                .amount(saved.getAmount())</span>
+<span class="fc" id="L83">                .occurredAt(saved.getOccurredAt())</span>
+<span class="fc" id="L84">                .createdAt(saved.getCreatedAt())</span>
+<span class="fc" id="L85">                .description(saved.getDescription())</span>
+<span class="fc bfc" id="L86" title="All 2 branches covered.">                .categoryName(category != null ? category.getName() : &quot;Income&quot;)</span>
+<span class="fc" id="L87">                .updatedBalance(account.getBalance())</span>
+<span class="fc" id="L88">                .build();</span>
+    }
+
+    @Override
+    public List&lt;IncomeResponse&gt; getAllIncome(Long userId) {
+        // Get all accounts for this user
+<span class="fc" id="L94">        List&lt;Account&gt; userAccounts = accountRepository.findByUser_UserId(userId);</span>
+
+        // Get all income transactions for user's accounts
+<span class="fc" id="L97">        List&lt;CashFlow&gt; incomeTransactions = cashFlowRepository.findByTypeOrderByCreatedAtDesc(CashFlowType.Income);</span>
+
+        // Filter to only include transactions for this user's accounts
+<span class="fc" id="L100">        return incomeTransactions.stream()</span>
+<span class="fc" id="L101">                .filter(cf -&gt; userAccounts.stream()</span>
+<span class="fc" id="L102">                        .anyMatch(acc -&gt; acc.getAccountId().equals(cf.getAccount().getAccountId())))</span>
+<span class="fc" id="L103">                .map(this::mapToIncomeResponse)</span>
+<span class="fc" id="L104">                .collect(Collectors.toList());</span>
+    }
+
+    private IncomeResponse mapToIncomeResponse(CashFlow cashFlow) {
+<span class="fc" id="L108">        return IncomeResponse.builder()</span>
+<span class="fc" id="L109">                .amount(cashFlow.getAmount())</span>
+<span class="fc" id="L110">                .occurredAt(cashFlow.getOccurredAt())</span>
+<span class="fc" id="L111">                .createdAt(cashFlow.getCreatedAt())</span>
+<span class="fc" id="L112">                .description(cashFlow.getDescription())</span>
+<span class="pc bpc" id="L113" title="1 of 2 branches missed.">                .categoryName(cashFlow.getCategory() != null ? cashFlow.getCategory().getName() : &quot;Income&quot;)</span>
+<span class="fc" id="L114">                .updatedBalance(cashFlow.getAccount().getBalance())</span>
+<span class="fc" id="L115">                .build();</span>
+    }
+
+    // Removed applyCashFlowToAccount - simplified inline for income only
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

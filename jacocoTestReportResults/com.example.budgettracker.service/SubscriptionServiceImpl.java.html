@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SubscriptionServiceImpl.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">project</a> &gt; <a href="index.source.html" class="el_package">com.example.budgettracker.service</a> &gt; <span class="el_source">SubscriptionServiceImpl.java</span></div><h1>SubscriptionServiceImpl.java</h1><pre class="source lang-java linenums">package com.example.budgettracker.service;
+
+import com.example.budgettracker.dto.SubscriptionRequest;
+import com.example.budgettracker.dto.SubscriptionResponse;
+import com.example.budgettracker.model.Subscription;
+import com.example.budgettracker.model.User;
+import com.example.budgettracker.repository.SubscriptionRepository;
+import com.example.budgettracker.repository.UserRepository;
+import jakarta.persistence.EntityNotFoundException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDateTime;
+import java.util.List;
+
+@Service
+@Transactional
+public class SubscriptionServiceImpl implements SubscriptionService {
+
+    private final SubscriptionRepository subscriptionRepository;
+    private final UserRepository userRepository;
+
+<span class="fc" id="L25">    public SubscriptionServiceImpl(SubscriptionRepository subscriptionRepository, UserRepository userRepository) {</span>
+<span class="fc" id="L26">        this.subscriptionRepository = subscriptionRepository;</span>
+<span class="fc" id="L27">        this.userRepository = userRepository;</span>
+<span class="fc" id="L28">    }</span>
+
+    @Override
+    public SubscriptionResponse create(Long userId, SubscriptionRequest req) {
+<span class="fc" id="L32">        User user = userRepository.findById(userId)</span>
+<span class="fc" id="L33">                .orElseThrow(() -&gt; new EntityNotFoundException(&quot;User not found&quot;));</span>
+
+        // Determine the first posting date/time — if not explicitly given, use startDate
+<span class="fc bfc" id="L36" title="All 2 branches covered.">        LocalDateTime firstPost = req.getFirstPostAt() != null ? req.getFirstPostAt() : req.getStartDate();</span>
+
+<span class="fc" id="L38">        Subscription s = Subscription.builder()</span>
+<span class="fc" id="L39">                .merchant(req.getMerchant())</span>
+<span class="fc" id="L40">                .amount(req.getAmount())</span>
+<span class="fc" id="L41">                .frequency(req.getFrequency().toUpperCase())</span>
+<span class="fc" id="L42">                .startDate(req.getStartDate())</span>
+<span class="fc bfc" id="L43" title="All 2 branches covered.">                .isActive(req.getIsActive() == null ? Boolean.TRUE : req.getIsActive())</span>
+<span class="fc" id="L44">                .nextPostAt(firstPost)</span>
+<span class="fc" id="L45">                .user(user)</span>
+<span class="fc" id="L46">                .build();</span>
+
+<span class="fc" id="L48">        s = subscriptionRepository.save(s);</span>
+<span class="fc" id="L49">        return toResponse(s);</span>
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List&lt;SubscriptionResponse&gt; list(Long userId, boolean activeOnly) {
+<span class="fc bfc" id="L55" title="All 2 branches covered.">        List&lt;Subscription&gt; subs = activeOnly</span>
+<span class="fc" id="L56">                ? subscriptionRepository.findByUser_UserIdAndIsActiveTrue(userId)</span>
+<span class="fc" id="L57">                : subscriptionRepository.findByUser_UserIdOrderByNextPostAtAsc(userId);</span>
+<span class="fc" id="L58">        return subs.stream().map(this::toResponse).toList();</span>
+    }
+
+    @Override
+    public SubscriptionResponse update(Long userId, Long id, SubscriptionRequest req) {
+<span class="fc" id="L63">        Subscription s = getOwned(userId, id);</span>
+
+<span class="fc" id="L65">        s.setMerchant(req.getMerchant());</span>
+<span class="fc" id="L66">        s.setAmount(req.getAmount());</span>
+<span class="fc" id="L67">        s.setFrequency(req.getFrequency().toUpperCase());</span>
+<span class="fc" id="L68">        s.setStartDate(req.getStartDate());</span>
+
+<span class="fc bfc" id="L70" title="All 2 branches covered.">        if (req.getFirstPostAt() != null)</span>
+<span class="fc" id="L71">            s.setNextPostAt(req.getFirstPostAt());</span>
+
+<span class="pc bpc" id="L73" title="1 of 2 branches missed.">        if (req.getIsActive() != null)</span>
+<span class="fc" id="L74">            s.setIsActive(req.getIsActive());</span>
+
+<span class="fc" id="L76">        return toResponse(s);</span>
+    }
+
+    @Override
+    public void pause(Long userId, Long id) {
+<span class="fc" id="L81">        Subscription s = getOwned(userId, id);</span>
+<span class="fc" id="L82">        s.setIsActive(false);</span>
+<span class="fc" id="L83">    }</span>
+
+    @Override
+    public void resume(Long userId, Long id) {
+<span class="fc" id="L87">        Subscription s = getOwned(userId, id);</span>
+<span class="fc" id="L88">        s.setIsActive(true);</span>
+
+        // If somehow nextPostAt was null, set it to now
+<span class="fc bfc" id="L91" title="All 2 branches covered.">        if (s.getNextPostAt() == null)</span>
+<span class="fc" id="L92">            s.setNextPostAt(LocalDateTime.now());</span>
+<span class="fc" id="L93">    }</span>
+
+    @Override
+    public void delete(Long userId, Long id) {
+<span class="fc" id="L97">        Subscription s = getOwned(userId, id);</span>
+<span class="fc" id="L98">        subscriptionRepository.delete(s);</span>
+<span class="fc" id="L99">    }</span>
+
+    private Subscription getOwned(Long userId, Long id) {
+<span class="fc" id="L102">        Subscription s = subscriptionRepository.findById(id)</span>
+<span class="fc" id="L103">                .orElseThrow(() -&gt; new EntityNotFoundException(&quot;Subscription not found&quot;));</span>
+<span class="fc bfc" id="L104" title="All 2 branches covered.">        if (!s.getUser().getUserId().equals(userId)) {</span>
+<span class="fc" id="L105">            throw new EntityNotFoundException(&quot;Subscription not found&quot;); // hide ownership</span>
+        }
+<span class="fc" id="L107">        return s;</span>
+    }
+
+    private SubscriptionResponse toResponse(Subscription s) {
+<span class="fc" id="L111">        return new SubscriptionResponse(</span>
+<span class="fc" id="L112">                s.getSubscriptionId(),</span>
+<span class="fc" id="L113">                s.getMerchant(),</span>
+<span class="fc" id="L114">                s.getAmount(),</span>
+<span class="fc" id="L115">                s.getFrequency(),</span>
+<span class="fc" id="L116">                s.getStartDate(),</span>
+<span class="fc" id="L117">                s.getIsActive(),</span>
+<span class="fc" id="L118">                s.getNextPostAt(),</span>
+<span class="fc" id="L119">                monthlyEquivalent(s.getAmount(), s.getFrequency())</span>
+        );
+    }
+
+    private BigDecimal monthlyEquivalent(BigDecimal amount, String freqRaw) {
+<span class="pc bpc" id="L124" title="1 of 2 branches missed.">        String f = freqRaw == null ? &quot;&quot; : freqRaw.trim().toUpperCase();</span>
+<span class="fc bfc" id="L125" title="All 6 branches covered.">        BigDecimal monthlyAmount = switch (f) {</span>
+<span class="fc" id="L126">            case &quot;WEEKLY&quot; -&gt; amount.multiply(BigDecimal.valueOf(52.0 / 12.0));</span>
+<span class="fc" id="L127">            case &quot;FORTNIGHTLY&quot; -&gt; amount.multiply(BigDecimal.valueOf(26.0 / 12.0));</span>
+<span class="fc" id="L128">            case &quot;MONTHLY&quot; -&gt; amount;</span>
+<span class="fc" id="L129">            case &quot;QUARTERLY&quot; -&gt; amount.divide(BigDecimal.valueOf(3), 6, RoundingMode.HALF_UP);</span>
+            case &quot;YEARLY&quot;, &quot;ANNUAL&quot;, &quot;ANNUALLY&quot; -&gt;
+<span class="fc" id="L131">                    amount.divide(BigDecimal.valueOf(12), 6, RoundingMode.HALF_UP);</span>
+<span class="fc" id="L132">            default -&gt; amount; // fallback treat as monthly</span>
+        };
+<span class="fc" id="L134">        return monthlyAmount.setScale(2, RoundingMode.HALF_UP);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

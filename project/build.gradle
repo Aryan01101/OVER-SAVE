@@ -1,0 +1,97 @@
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'org.flywaydb:flyway-database-postgresql:11.7.2'
+    }
+}
+
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '3.5.5'
+	id 'io.spring.dependency-management' version '1.1.7'
+    id 'jacoco'
+    id 'org.flywaydb.flyway' version '11.7.2'
+}
+
+group = 'com.example'
+version = '0.0.1-SNAPSHOT'
+description = 'Budget Tracker Project'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(17)
+	}
+}
+
+configurations {
+	compileOnly {
+		extendsFrom annotationProcessor
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+	implementation 'org.springframework.boot:spring-boot-starter-security'
+	implementation 'org.springframework.security:spring-security-crypto'
+	implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
+	implementation 'org.springframework.boot:spring-boot-starter-mail'
+	implementation 'org.jfree:jfreechart:1.5.4'
+    implementation 'org.flywaydb:flyway-core:11.7.2'
+    implementation 'org.flywaydb:flyway-database-postgresql:11.7.2'
+
+
+	compileOnly 'org.projectlombok:lombok'
+	runtimeOnly 'org.postgresql:postgresql'
+	runtimeOnly 'com.h2database:h2'
+	annotationProcessor 'org.projectlombok:lombok'
+
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    testImplementation 'junit:junit:4.13.2'                 // ★ JUnit4
+    testImplementation 'org.mockito:mockito-core:5.11.0'
+    testImplementation 'org.mockito:mockito-inline:5.2.0'
+
+}
+
+tasks.named('test') {
+    useJUnit()
+    testLogging {
+        events "PASSED", "FAILED", "SKIPPED"
+    }
+}
+
+tasks.named('bootRun') {
+	mainClass.set('com.example.budgettracker.BudgetTrackerApplication')
+}
+
+bootJar {
+	mainClass = 'com.example.budgettracker.BudgetTrackerApplication'
+}
+
+flyway {
+    url = project.findProperty("flyway.url") ?: "jdbc:postgresql://localhost:5432/elec5619"
+    user = project.findProperty("flyway.user") ?: "laxus"
+    password = project.findProperty("flyway.password") ?: "aryan1234"
+    locations = ["classpath:db/migration"]
+    baselineOnMigrate = true
+    baselineVersion = "0"
+}
+
+jacocoTestReport {
+    dependsOn test
+    reports {
+        xml.required = true
+        html.required = true
+    }
+}
+
+check.dependsOn jacocoTestReport

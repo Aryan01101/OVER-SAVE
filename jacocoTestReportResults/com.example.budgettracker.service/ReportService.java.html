@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ReportService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">project</a> &gt; <a href="index.source.html" class="el_package">com.example.budgettracker.service</a> &gt; <span class="el_source">ReportService.java</span></div><h1>ReportService.java</h1><pre class="source lang-java linenums">package com.example.budgettracker.service;
+
+
+
+import com.example.budgettracker.model.Category;
+import com.example.budgettracker.model.Transfer;
+import com.example.budgettracker.repository.CashFlowRepository;
+import com.example.budgettracker.repository.CategoryRepository;
+import com.example.budgettracker.model.CashFlow;
+import com.example.budgettracker.repository.TransferRepository;
+import org.springframework.stereotype.Service;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.*;
+import java.util.stream.Collectors;
+
+@Service
+public class ReportService {
+
+    private final CashFlowRepository cashFlowRepository;
+    private final CategoryRepository categoryRepository;
+    private final TransferRepository transferRepository;
+
+    public ReportService(CashFlowRepository cashFlowRepository,
+                         CategoryRepository categoryRepository,
+<span class="fc" id="L27">                         TransferRepository transferRepository) {</span>
+<span class="fc" id="L28">        this.cashFlowRepository = cashFlowRepository;</span>
+<span class="fc" id="L29">        this.categoryRepository = categoryRepository;</span>
+<span class="fc" id="L30">        this.transferRepository = transferRepository;</span>
+<span class="fc" id="L31">    }</span>
+
+    public Map&lt;String, Object&gt; generateReport(Long userId, LocalDateTime startDate, LocalDateTime endDate) {
+<span class="fc" id="L34">        LocalDateTime startDateTime = startDate;</span>
+<span class="fc" id="L35">        LocalDateTime endDateTime = endDate;</span>
+<span class="fc" id="L36">        List&lt;CashFlow&gt; cashFlows = cashFlowRepository</span>
+<span class="fc" id="L37">                .findByAccount_User_UserIdAndOccurredAtBetween(userId, startDateTime, endDateTime);</span>
+
+
+<span class="fc" id="L40">        List&lt;CashFlow&gt; incomes = cashFlows.stream()</span>
+<span class="fc" id="L41">                .filter(cf -&gt; &quot;Income&quot;.equalsIgnoreCase(String.valueOf(cf.getType())))</span>
+<span class="fc" id="L42">                .toList();</span>
+
+<span class="fc" id="L44">        List&lt;CashFlow&gt; expenses = cashFlows.stream()</span>
+<span class="fc" id="L45">                .filter(cf -&gt; &quot;Expense&quot;.equalsIgnoreCase(String.valueOf(cf.getType())))</span>
+<span class="fc" id="L46">                .toList();</span>
+
+<span class="fc" id="L48">        List&lt;Transfer&gt; transfers = transferRepository</span>
+<span class="fc" id="L49">                .findByAccountFrom_User_UserIdAndCreatedAtBetween(userId, startDate, endDate);</span>
+
+
+<span class="fc" id="L52">        BigDecimal totalTransfer = transfers.stream()</span>
+<span class="fc" id="L53">                .map(Transfer::getAmount)</span>
+<span class="fc" id="L54">                .reduce(BigDecimal.ZERO, BigDecimal::add);        // 计算总收入</span>
+<span class="fc" id="L55">        BigDecimal totalIncome = incomes.stream()</span>
+<span class="fc" id="L56">                .map(CashFlow::getAmount)</span>
+<span class="fc" id="L57">                .reduce(BigDecimal.ZERO, BigDecimal::add);</span>
+
+
+<span class="fc" id="L60">        BigDecimal totalExpense = expenses.stream()</span>
+<span class="fc" id="L61">                .map(CashFlow::getAmount)</span>
+<span class="fc" id="L62">                .reduce(BigDecimal.ZERO, BigDecimal::add);</span>
+
+
+<span class="fc" id="L65">        BigDecimal balance = totalIncome.subtract(totalExpense);</span>
+
+
+<span class="fc" id="L68">        Map&lt;Long, BigDecimal&gt; totalsByCategoryId = expenses.stream()</span>
+<span class="fc" id="L69">                .collect(Collectors.groupingBy(</span>
+<span class="fc bfc" id="L70" title="All 2 branches covered.">                        cf -&gt; cf.getCategory() != null ? cf.getCategory().getCategoryId() : -1L,</span>
+<span class="fc" id="L71">                        Collectors.mapping(CashFlow::getAmount,</span>
+<span class="fc" id="L72">                                Collectors.reducing(BigDecimal.ZERO, BigDecimal::add))</span>
+                ));
+
+
+<span class="fc" id="L76">        Map&lt;String, BigDecimal&gt; expenseByCategory = new LinkedHashMap&lt;&gt;();</span>
+<span class="fc" id="L77">        totalsByCategoryId.forEach((categoryId, total) -&gt; {</span>
+            String name;
+<span class="fc bfc" id="L79" title="All 2 branches covered.">            if (categoryId == -1L) {</span>
+<span class="fc" id="L80">                name = &quot;Uncategorized&quot;;</span>
+            } else {
+<span class="fc" id="L82">                name = categoryRepository.findById(categoryId)</span>
+<span class="fc" id="L83">                        .map(Category::getName)</span>
+<span class="fc" id="L84">                        .orElse(&quot;Unknown&quot;);</span>
+            }
+<span class="fc" id="L86">            expenseByCategory.put(name, total);</span>
+<span class="fc" id="L87">        });</span>
+
+<span class="fc" id="L89">        Map&lt;String, Object&gt; report = new LinkedHashMap&lt;&gt;();</span>
+<span class="fc" id="L90">        report.put(&quot;totalIncome&quot;, totalIncome);</span>
+<span class="fc" id="L91">        report.put(&quot;totalExpense&quot;, totalExpense);</span>
+<span class="fc" id="L92">        report.put(&quot;balance&quot;, balance);</span>
+<span class="fc" id="L93">        report.put(&quot;expenseByCategory&quot;, expenseByCategory);</span>
+<span class="fc" id="L94">        report.put(&quot;transfer&quot;, totalTransfer);</span>
+
+<span class="fc" id="L96">        System.out.println(&quot;===== Financial Report =====&quot;);</span>
+<span class="fc" id="L97">        System.out.println(&quot;Total Income: &quot; + totalIncome);</span>
+<span class="fc" id="L98">        System.out.println(&quot;Total Expense: &quot; + totalExpense);</span>
+<span class="fc" id="L99">        System.out.println(&quot;Balance: &quot; + balance);</span>
+<span class="fc" id="L100">        expenseByCategory.forEach((name, total) -&gt; {</span>
+<span class="fc" id="L101">            System.out.println(&quot;Category: &quot; + name + &quot; | Expense: &quot; + total);</span>
+<span class="fc" id="L102">        });</span>
+<span class="fc" id="L103">        System.out.println(&quot;============================&quot;);</span>
+
+<span class="fc" id="L105">        return report;</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

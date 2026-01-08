@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OVER-SAVE - Settings</title>
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/settings.css">
+</head>
+<body>
+<!-- Sidebar -->
+<aside class="sidebar">
+    <div class="logo-section">
+        <div class="logo">
+            <span>💰</span><span>OVER-SAVE</span>
+        </div>
+    </div>
+    <nav class="nav-menu">
+        <a href="oversave-dashboard.html" class="nav-item">Dashboard</a>
+        <a href="transactions_page.html" class="nav-item">Transactions</a>
+        <a href="budgets_page.html" class="nav-item">Budgets</a>
+        <a href="goals_page.html" class="nav-item">Goals</a>
+        <a href="subscriptions_page.html" class="nav-item">Subscriptions</a>
+        <a href="shopping_page.html" class="nav-item">Rewards Shop</a>
+        <a href="settings_page.html" class="nav-item active">Settings</a>
+    </nav>
+</aside>
+
+<!-- Sidebar Toggle -->
+<button class="sidebar-toggle" onclick="toggleSidebar()" title="Toggle Sidebar">
+    <span id="toggle-icon">☰</span>
+</button>
+
+<!-- Main Content -->
+<main class="main-content">
+    <header class="header">
+        <div class="header-left">
+            <h1>Settings ⚙️</h1>
+        </div>
+    </header>
+
+    <div class="settings-content">
+        <!-- User Information -->
+        <section class="settings-section">
+            <h2 class="section-title">Your Account</h2>
+            <div class="user-info">
+                <p><strong>Name:</strong> <span id="userName">Loading...</span></p>
+                <p><strong>Email:</strong> <span id="userEmail">Loading...</span></p>
+                <p><strong>User ID:</strong> <span id="userId">Loading...</span></p>
+            </div>
+        </section>
+
+        <!-- Data Export -->
+        <section class="settings-section">
+            <h2 class="section-title">Data Management</h2>
+            <p class="section-desc">Export all your transactions as a CSV file for analysis or backup.</p>
+            <button class="btn btn-accent" id="exportDataBtn">⬇️ Export Data</button>
+        </section>
+
+        <section class="settings-section">
+            <h2 class="section-title">Email Notifications</h2>
+            <p class="section-desc">Receive a monthly summary email from OVER-SAVE.</p>
+            <div class="toggle-row">
+                <label>
+                    <input type="checkbox" id="emailNotificationToggle">
+                    <span>Receive monthly summary email</span>
+                </label>
+            </div>
+            <div style="display:flex; gap:1rem; margin-top:1rem;">
+                <button class="btn btn-primary" id="saveEmailPrefBtn">💾 Save Preference</button>
+                <button class="btn btn-accent" id="sendTestEmailBtn">📨 Send Test Email</button>
+            </div>
+        </section>
+
+    </div>
+</main>
+
+<script src="../js/sidebar.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/settings.js"></script>
+<script src="../js/footer.js"></script>
+</body>
+</html>

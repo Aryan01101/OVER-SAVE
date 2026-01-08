@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Goal.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">project</a> &gt; <a href="index.source.html" class="el_package">com.example.budgettracker.model</a> &gt; <span class="el_source">Goal.java</span></div><h1>Goal.java</h1><pre class="source lang-java linenums">package com.example.budgettracker.model;
+
+import com.example.budgettracker.model.enums.GoalStatus;
+import jakarta.persistence.*;
+import lombok.*;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+
+@Getter
+@Setter
+@Entity
+@Table(
+        name = &quot;goal&quot;,
+        uniqueConstraints = @UniqueConstraint(name = &quot;uk_goal_user_name&quot;, columnNames = {&quot;user_id&quot;,&quot;name&quot;})
+)
+@NoArgsConstructor @AllArgsConstructor
+@Builder
+public class Goal {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    private String name;
+
+    @Column(name = &quot;target_amount&quot;, nullable = false)
+    private BigDecimal targetAmount;
+
+
+    @Builder.Default
+    @Column(name = &quot;saved_amount&quot;, nullable = false)
+    private BigDecimal currentAmount = BigDecimal.ZERO;
+
+    @Column(name = &quot;due_date&quot;)
+    private LocalDate dueDate;
+
+    @Enumerated(EnumType.STRING)
+    @Builder.Default
+    private GoalStatus status = GoalStatus.IN_PROGRESS;
+    @ManyToOne
+    @JoinColumn(name = &quot;user_id&quot;, nullable = false)
+    private User user;
+
+    @OneToOne
+    @JoinColumn(name = &quot;account_id&quot;)
+    private Account linkedAccount;
+
+    @PrePersist
+    public void prePersist() {
+<span class="nc bnc" id="L49" title="All 2 branches missed.">        if (currentAmount == null) currentAmount = BigDecimal.ZERO;</span>
+<span class="nc bnc" id="L50" title="All 2 branches missed.">        if (status == null) status = GoalStatus.IN_PROGRESS;</span>
+<span class="nc" id="L51">    }</span>
+
+    // Alias methods for compatibility with DashboardServiceImpl
+    public Long getGoalId() {
+<span class="nc" id="L55">        return this.id;</span>
+    }
+
+    public void setGoalId(Long goalId) {
+<span class="nc" id="L59">        this.id = goalId;</span>
+<span class="nc" id="L60">    }</span>
+
+    public LocalDate getTargetDate() {
+<span class="nc" id="L63">        return this.dueDate;</span>
+    }
+
+    public void setTargetDate(LocalDate targetDate) {
+<span class="nc" id="L67">        this.dueDate = targetDate;</span>
+<span class="nc" id="L68">    }</span>
+
+    public BigDecimal getSavedAmount() {
+<span class="nc" id="L71">        return this.currentAmount;</span>
+    }
+
+    public void setSavedAmount(BigDecimal savedAmount) {
+<span class="nc" id="L75">        this.currentAmount = savedAmount;</span>
+<span class="nc" id="L76">    }</span>
+
+    public Account getAccount() {
+<span class="fc" id="L79">        return this.linkedAccount;</span>
+    }
+
+    public void setAccount(Account account) {
+<span class="nc" id="L83">        this.linkedAccount = account;</span>
+<span class="nc" id="L84">    }</span>
+
+    public int getProgressPercent() {
+<span class="nc bnc" id="L87" title="All 4 branches missed.">        if (targetAmount == null || targetAmount.compareTo(BigDecimal.ZERO) == 0) {</span>
+<span class="nc" id="L88">            return 0;</span>
+        }
+<span class="nc bnc" id="L90" title="All 2 branches missed.">        if (currentAmount == null) {</span>
+<span class="nc" id="L91">            return 0;</span>
+        }
+<span class="nc" id="L93">        return currentAmount.multiply(new BigDecimal(100))</span>
+<span class="nc" id="L94">                .divide(targetAmount, 0, java.math.RoundingMode.HALF_UP)</span>
+<span class="nc" id="L95">                .intValue();</span>
+    }
+
+    // Note: getCategory() is not implemented as Goal doesn't have a category field
+    // If needed, this would require adding a category relationship to the model
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

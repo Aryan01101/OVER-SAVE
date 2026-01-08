@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Session.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">project</a> &gt; <a href="index.source.html" class="el_package">com.example.budgettracker.model</a> &gt; <span class="el_source">Session.java</span></div><h1>Session.java</h1><pre class="source lang-java linenums">package com.example.budgettracker.model;
+
+import jakarta.persistence.*;
+import lombok.*;
+import java.time.LocalDateTime;
+
+@Entity
+@Table(name = &quot;session&quot;, indexes = {
+    @Index(name = &quot;idx_session_token&quot;, columnList = &quot;sessionToken&quot;),
+    @Index(name = &quot;idx_session_expires&quot;, columnList = &quot;expiresAt&quot;),
+    @Index(name = &quot;idx_session_last_activity&quot;, columnList = &quot;lastActivityAt&quot;)
+})
+@Data @NoArgsConstructor @AllArgsConstructor @Builder
+public class Session {
+
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long sessionId;
+
+    @Column(nullable = false)
+    private LocalDateTime issuedAt;
+
+    @Column(nullable = false)
+    private LocalDateTime expiresAt;
+
+    @Column(nullable = true) // Allow null for migration
+    private LocalDateTime lastActivityAt;
+
+    @Column(nullable = false, length = 500)
+    private String sessionToken;
+
+    // For tampering detection
+    @Column(nullable = true, length = 255) // Allow null for migration
+    private String tokenSignature;
+
+    @Column(length = 45) // IPv4/IPv6 address
+    private String ipAddress;
+
+    @Column(length = 500)
+    private String userAgent;
+
+    @Column(nullable = true) // Allow null for migration
+    @Builder.Default
+    private Boolean isActive = true;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = &quot;user_id&quot;,
+            foreignKey = @ForeignKey(name = &quot;fk_session_user&quot;))
+    private User user;
+
+    // Helper method to check if session is expired
+    public boolean isExpired() {
+<span class="fc" id="L52">        return LocalDateTime.now().isAfter(expiresAt);</span>
+    }
+
+    // Helper method to check if session is idle (5 minutes)
+    public boolean isIdle() {
+<span class="pc bpc" id="L57" title="1 of 2 branches missed.">        if (lastActivityAt == null) {</span>
+<span class="nc" id="L58">            return true; // Treat null as expired</span>
+        }
+<span class="fc" id="L60">        return LocalDateTime.now().isAfter(lastActivityAt.plusMinutes(5));</span>
+    }
+
+    // Update activity timestamp
+    public void updateActivity() {
+<span class="fc" id="L65">        this.lastActivityAt = LocalDateTime.now();</span>
+<span class="fc" id="L66">    }</span>
+
+    // Helper method to check if session is active
+    public Boolean getIsActive() {
+<span class="pc bpc" id="L70" title="1 of 2 branches missed.">        return isActive != null ? isActive : false;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AuthController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">project</a> &gt; <a href="index.source.html" class="el_package">com.example.budgettracker.controller</a> &gt; <span class="el_source">AuthController.java</span></div><h1>AuthController.java</h1><pre class="source lang-java linenums">package com.example.budgettracker.controller;
+
+import com.example.budgettracker.dto.*;
+import com.example.budgettracker.model.User;
+import com.example.budgettracker.service.AuthService;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping(&quot;/api/auth&quot;)
+@RequiredArgsConstructor
+<span class="nc" id="L16">@Slf4j</span>
+public class AuthController {
+
+    private final AuthService authService;
+
+    @PostMapping(&quot;/login&quot;)
+    public ResponseEntity&lt;AuthResponse&gt; login(
+            @Valid @RequestBody LoginRequest loginRequest,
+            HttpServletRequest request) {
+
+<span class="nc" id="L26">        String ipAddress = getClientIpAddress(request);</span>
+<span class="nc" id="L27">        log.info(&quot;Login attempt for email: {} from IP: {}&quot;, loginRequest.getEmail(), ipAddress);</span>
+
+<span class="nc" id="L29">        AuthResponse response = authService.login(loginRequest, ipAddress);</span>
+
+<span class="nc bnc" id="L31" title="All 2 branches missed.">        if (response.getSessionToken() != null) {</span>
+<span class="nc" id="L32">            return ResponseEntity.ok(response);</span>
+        } else {
+<span class="nc" id="L34">            return ResponseEntity.badRequest().body(response);</span>
+        }
+    }
+
+    @PostMapping(&quot;/signup&quot;)
+    public ResponseEntity&lt;AuthResponse&gt; signup(
+            @Valid @RequestBody SignupRequest signupRequest,
+            HttpServletRequest request) {
+
+<span class="nc" id="L43">        String ipAddress = getClientIpAddress(request);</span>
+<span class="nc" id="L44">        log.info(&quot;Signup attempt for email: {} from IP: {}&quot;, signupRequest.getEmail(), ipAddress);</span>
+
+<span class="nc" id="L46">        AuthResponse response = authService.signup(signupRequest, ipAddress);</span>
+
+<span class="nc bnc" id="L48" title="All 2 branches missed.">        if (response.getSessionToken() != null) {</span>
+<span class="nc" id="L49">            return ResponseEntity.ok(response);</span>
+        } else {
+<span class="nc" id="L51">            return ResponseEntity.badRequest().body(response);</span>
+        }
+    }
+
+    @PostMapping(&quot;/login/idp&quot;)
+    public ResponseEntity&lt;AuthResponse&gt; loginWithIdp(
+            @Valid @RequestBody IdpLoginRequest idpLoginRequest,
+            HttpServletRequest request) {
+
+<span class="nc" id="L60">        String ipAddress = getClientIpAddress(request);</span>
+<span class="nc" id="L61">        log.info(&quot;IdP login attempt for provider: {} from IP: {}&quot;, idpLoginRequest.getProvider(), ipAddress);</span>
+
+<span class="nc" id="L63">        AuthResponse response = authService.loginWithIdp(idpLoginRequest, ipAddress);</span>
+
+<span class="nc bnc" id="L65" title="All 2 branches missed.">        if (response.getSessionToken() != null) {</span>
+<span class="nc" id="L66">            return ResponseEntity.ok(response);</span>
+        } else {
+<span class="nc" id="L68">            return ResponseEntity.badRequest().body(response);</span>
+        }
+    }
+
+    @PostMapping(&quot;/logout&quot;)
+    public ResponseEntity&lt;Void&gt; logout(@RequestHeader(&quot;Authorization&quot;) String authHeader) {
+<span class="nc" id="L74">        String sessionToken = extractSessionToken(authHeader);</span>
+<span class="nc bnc" id="L75" title="All 2 branches missed.">        if (sessionToken != null) {</span>
+<span class="nc" id="L76">            authService.logout(sessionToken);</span>
+<span class="nc" id="L77">            log.info(&quot;User logged out successfully&quot;);</span>
+        }
+<span class="nc" id="L79">        return ResponseEntity.ok().build();</span>
+    }
+
+    @GetMapping(&quot;/me&quot;)
+    public ResponseEntity&lt;User&gt; getCurrentUser(@RequestHeader(&quot;Authorization&quot;) String authHeader) {
+<span class="nc" id="L84">        String sessionToken = extractSessionToken(authHeader);</span>
+<span class="nc bnc" id="L85" title="All 2 branches missed.">        if (sessionToken == null) {</span>
+<span class="nc" id="L86">            return ResponseEntity.status(401).build();</span>
+        }
+
+<span class="nc" id="L89">        User user = authService.getCurrentUser(sessionToken);</span>
+<span class="nc bnc" id="L90" title="All 2 branches missed.">        if (user != null) {</span>
+<span class="nc" id="L91">            return ResponseEntity.ok(user);</span>
+        } else {
+<span class="nc" id="L93">            return ResponseEntity.status(401).build();</span>
+        }
+    }
+
+    @GetMapping(&quot;/validate&quot;)
+    public ResponseEntity&lt;Boolean&gt; validateSession(@RequestHeader(&quot;Authorization&quot;) String authHeader) {
+<span class="nc" id="L99">        String sessionToken = extractSessionToken(authHeader);</span>
+<span class="nc bnc" id="L100" title="All 2 branches missed.">        if (sessionToken == null) {</span>
+<span class="nc" id="L101">            return ResponseEntity.ok(false);</span>
+        }
+
+<span class="nc" id="L104">        boolean isValid = authService.isValidSession(sessionToken);</span>
+<span class="nc" id="L105">        return ResponseEntity.ok(isValid);</span>
+    }
+
+    private String getClientIpAddress(HttpServletRequest request) {
+<span class="nc" id="L109">        String xForwardedFor = request.getHeader(&quot;X-Forwarded-For&quot;);</span>
+<span class="nc bnc" id="L110" title="All 4 branches missed.">        if (xForwardedFor != null &amp;&amp; !xForwardedFor.isEmpty()) {</span>
+<span class="nc" id="L111">            return xForwardedFor.split(&quot;,&quot;)[0].trim();</span>
+        }
+
+<span class="nc" id="L114">        String xRealIp = request.getHeader(&quot;X-Real-IP&quot;);</span>
+<span class="nc bnc" id="L115" title="All 4 branches missed.">        if (xRealIp != null &amp;&amp; !xRealIp.isEmpty()) {</span>
+<span class="nc" id="L116">            return xRealIp;</span>
+        }
+
+<span class="nc" id="L119">        return request.getRemoteAddr();</span>
+    }
+
+    private String extractSessionToken(String authHeader) {
+<span class="nc bnc" id="L123" title="All 4 branches missed.">        if (authHeader != null &amp;&amp; authHeader.startsWith(&quot;Bearer &quot;)) {</span>
+<span class="nc" id="L124">            return authHeader.substring(7);</span>
+        }
+<span class="nc" id="L126">        return null;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

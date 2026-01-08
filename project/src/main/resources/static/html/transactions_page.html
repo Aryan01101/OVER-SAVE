@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OVER-SAVE - Transactions</title>
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/transactions.css">
+</head>
+<body>
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="logo-section">
+            <div class="logo">
+                <span>💰</span><span>OVER-SAVE</span>
+            </div>
+        </div>
+        <nav class="nav-menu">
+            <a href="oversave-dashboard.html" class="nav-item">Dashboard</a>
+            <a href="transactions_page.html" class="nav-item active">Transactions</a>
+            <a href="budgets_page.html" class="nav-item">Budgets</a>
+            <a href="goals_page.html" class="nav-item">Goals</a>
+            <a href="subscriptions_page.html" class="nav-item">Subscriptions</a>
+            <a href="shopping_page.html" class="nav-item">Rewards Shop</a>
+            <a href="settings_page.html" class="nav-item">Settings</a>
+        </nav>
+    </aside>
+
+    <!-- Sidebar Toggle Button -->
+    <button class="sidebar-toggle" onclick="toggleSidebar()" title="Toggle Sidebar">
+        <span id="toggle-icon">☰</span>
+    </button>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <h1>Transactions </h1>
+                
+            </div>
+            
+            <div class="header-actions">
+                <div class="budget-coin-balance" onclick="navigateToRewardsShop()" style="cursor: pointer;" title="Click to visit Rewards Shop">
+                    <span class="coin-icon">🪙</span>
+                    <span id="budget-coin-balance">0</span>
+                    <span>Budget Coins</span>
+                </div>
+                <button class="btn btn-secondary" onclick="importTransactions()">Import</button>
+                <button class="btn btn-primary" onclick="downloadReportChart()">Download Report</button>
+
+
+                <div class="header-user-section">
+                    <div class="header-user-info">
+                        <div class="header-user-details">
+                            <div class="header-user-name">Loading...</div>
+                            <div class="header-user-email">Loading...</div>
+                        </div>
+                        <div class="header-user-avatar">??</div>
+                    </div>
+                    <button onclick="logout()" class="header-logout-btn" title="Logout">
+                        <span class="logout-icon">⏻</span>
+                        <span class="logout-text">Logout</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Transactions Content -->
+        <div class="transactions-content">
+            <!-- Summary Cards -->
+            <div class="summary-cards">
+                <div class="summary-card income">
+                    <div class="summary-icon">💰</div>
+                    <div class="summary-value" id="total-income-summary">$0</div>
+                    <div class="summary-label">Total Income</div>
+                </div>
+                <div class="summary-card expenses">
+                    <div class="summary-icon">💸</div>
+                    <div class="summary-value" id="total-expenses-summary">$0</div>
+                    <div class="summary-label">Total Expenses</div>
+                </div>
+                <div class="summary-card net">
+                    <div class="summary-icon">📊</div>
+                    <div class="summary-value" id="net-income-summary">$0</div>
+                    <div class="summary-label">Net Income</div>
+                </div>
+                <div class="summary-card transactions">
+                    <div class="summary-icon">📋</div>
+                    <div class="summary-value" id="total-transactions-summary">0</div>
+                    <div class="summary-label">Total Transactions</div>
+                </div>
+            </div>
+
+            <!-- Main Layout -->
+            <div class="transactions-main">
+                <!-- Transactions List -->
+                <div class="transactions-list-card">
+                    <div class="list-header">
+                        <h3>Recent Transactions</h3>
+                        <div class="search-filters">
+                            <div class="search-box">
+                                <span class="search-icon">🔍</span>
+                                <input type="text" class="search-input" placeholder="Search transactions..." id="search-input">
+                            </div>
+                            <select class="filter-select" id="category-filter">
+                                <option value="">All Categories</option>
+                                <!-- Categories will be loaded dynamically -->
+                            </select>
+                            <button class="btn btn-secondary" onclick="openManageCategoriesModal()" style="display: flex; align-items: center; gap: 0.5rem; white-space: nowrap;">
+                                🏷️ Manage
+                            </button>
+                            <div class="filter-tabs">
+                                <button class="filter-btn active" onclick="setTypeFilter('all', event)">All</button>
+                                <button class="filter-btn" onclick="setTypeFilter('income', event)">Income</button>
+                                <button class="filter-btn" onclick="setTypeFilter('expense', event)">Expenses</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="transactions-list">
+                        <!-- Transactions will be loaded dynamically from backend via income-service.js -->
+
+                    </div>
+                </div>
+
+                <!-- Sidebar -->
+                <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                    <!-- Quick Add -->
+                    <div class="quick-add-card">
+                        <h3 style="margin-bottom: 1rem;">Quick Add Expense</h3>
+                        
+                        <div class="quick-add-tabs">
+                            <button class="quick-tab active" onclick="switchQuickTab('expense')">💸 Expense</button>
+                            <button class="quick-tab" onclick="switchQuickTab('income')">💰 Income</button>
+                        </div>
+
+                        <form id="quick-add-form">
+                            <div class="form-group">
+                                <label class="form-label">Amount</label>
+                                <div class="amount-input-group">
+                                    <span class="currency-symbol">$</span>
+                                    <input type="number" class="form-control amount-input" placeholder="0.00" step="0.01" min="0.01" required>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Description</label>
+                                <input type="text" class="form-control" placeholder="What was this for?" required>
+                            </div>
+
+                            <div class="form-group" id="category-selector-group">
+                                <label class="form-label">Category (optional)</label>
+                                <div class="category-search-container">
+                                    <input
+                                        type="text"
+                                        class="category-search-input"
+                                        id="category-search"
+                                        placeholder="Search categories... (e.g., 't' for Transport)"
+                                        autocomplete="off"
+                                    />
+                                    <button type="button" class="category-clear-btn" id="category-clear">×</button>
+                                    <div class="category-dropdown" id="category-dropdown">
+                                        <!-- Categories will be loaded dynamically -->
+                                        <div class="category-no-results">Loading categories...</div>
+                                    </div>
+                                </div>
+                                <input type="hidden" id="selected-category-id" name="categoryId" />
+                            </div>
+
+                            <button type="submit" class="btn btn-primary" style="width: 100%;">
+                                💸 Add Expense
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Add Transaction Modal -->
+    <div class="modal" id="addTransactionModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Add New Transaction</h3>
+                <button class="close-btn" onclick="closeAddTransactionModal()">&times;</button>
+            </div>
+            
+            <form id="full-transaction-form">
+                <div class="quick-add-tabs">
+                    <button type="button" class="quick-tab active" onclick="switchModalTab('expense', event)">💸 Expense</button>
+                    <button type="button" class="quick-tab" onclick="switchModalTab('income', event)">💰 Income</button>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Amount</label>
+                    <div class="amount-input-group">
+                        <span class="currency-symbol">$</span>
+                        <input type="number" class="form-control amount-input" placeholder="0.00" step="0.01" min="0.01" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Description</label>
+                    <input type="text" class="form-control" placeholder="Transaction description" required>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div class="form-group">
+                        <label class="form-label">Date</label>
+                        <input type="date" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Time</label>
+                        <input type="time" class="form-control">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Category (optional)</label>
+                    <div class="category-search-container">
+                        <input
+                            type="text"
+                            class="category-search-input"
+                            id="modal-category-search"
+                            placeholder="Search categories... (e.g., 't' for Transport)"
+                            autocomplete="off"
+                        />
+                        <button type="button" class="category-clear-btn" id="modal-category-clear">X</button>
+                        <div class="category-dropdown" id="modal-category-dropdown">
+                            <!-- Categories will be loaded dynamically -->
+                            <div class="category-no-results">Loading categories...</div>
+                        </div>
+                    </div>
+                    <input type="hidden" id="modal-selected-category-id" name="categoryId" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Notes (Optional)</label>
+                    <textarea class="form-control" placeholder="Additional notes..." rows="3"></textarea>
+                </div>
+
+                <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                    <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeAddTransactionModal()">
+                        Cancel
+                    </button>
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">
+                        💾 Add Transaction
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Manage Categories Modal -->
+    <div id="manageCategoriesModal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3>🏷️ Manage Categories</h3>
+                <span class="close" onclick="closeManageCategoriesModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div style="display: flex; gap: 0.75rem; margin-bottom: 1.5rem;">
+                    <button class="btn btn-primary" onclick="openCreateCategoryModal()" style="flex: 1;">
+                        ➕ Create New
+                    </button>
+                    <button class="btn btn-secondary" onclick="openMergeCategoriesModal()" style="flex: 1;">
+                        🔀 Merge
+                    </button>
+                </div>
+
+                <h4 style="margin-bottom: 1rem; color: #475569;">Your Categories</h4>
+                <div id="categories-list" style="max-height: 400px; overflow-y: auto;">
+                    <!-- Categories will be loaded dynamically -->
+                    <div style="text-align: center; padding: 2rem; color: #94a3b8;">
+                        Loading categories...
+                    </div>
+                </div>
+
+                <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #e2e8f0;">
+                    <h4 style="margin-bottom: 0.5rem; color: #475569; font-size: 0.875rem;">System Categories</h4>
+                    <p style="color: #94a3b8; font-size: 0.75rem;">These categories are built-in and cannot be modified or deleted.</p>
+                    <div id="system-categories-list" style="margin-top: 0.5rem;">
+                        <!-- System categories will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create/Edit Category Modal -->
+    <div id="createCategoryModal" class="modal">
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <h3 id="category-modal-title">➕ Create Category</h3>
+                <span class="close" onclick="closeCreateCategoryModal()">&times;</span>
+            </div>
+            <form id="categoryForm">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="categoryName" class="form-label">Category Name *</label>
+                        <input type="text" id="categoryName" class="form-control" required maxlength="255" placeholder="e.g., Coffee, Books, Gym">
+                    </div>
+                    <input type="hidden" id="editCategoryId">
+                </div>
+                <div class="form-actions" style="display: flex; gap: 0.5rem; padding: 1rem;">
+                    <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeCreateCategoryModal()">
+                        Cancel
+                    </button>
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">
+                        Save Category
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Delete Category Modal with Reassignment -->
+    <div id="deleteCategoryModal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3>🗑️ Delete Category</h3>
+                <span class="close" onclick="closeDeleteCategoryModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div style="background: #fee2e2; border-left: 4px solid #ef4444; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1.5rem;">
+                    <p style="margin: 0; font-size: 0.875rem; color: #7f1d1d;">
+                        ⚠️ <strong>Warning: This action cannot be undone!</strong>
+                        <br><br>
+                        You are about to delete <strong id="delete-category-name"></strong>.
+                        <br><br>
+                        <strong>What will happen:</strong><br>
+                        • All transactions linked to this category will be <strong>permanently deleted</strong><br>
+                        • All budgets for this category will be <strong>permanently deleted</strong>
+                    </p>
+                </div>
+
+                <div style="display: flex; gap: 0.5rem; margin-top: 1.5rem;">
+                    <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeDeleteCategoryModal()">
+                        Cancel
+                    </button>
+                    <button type="button" class="btn btn-danger" style="flex: 1;" onclick="confirmDeleteCategory()" id="confirm-delete-btn">
+                        Delete Category
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Merge Categories Modal -->
+    <div id="mergeCategoriesModal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3>🔀 Merge Categories</h3>
+                <span class="close" onclick="closeMergeCategoriesModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div style="background: #dbeafe; border-left: 4px solid #3b82f6; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1.5rem;">
+                    <p style="margin: 0; font-size: 0.875rem; color: #1e40af;">
+                        💡 <strong>How Merging Works:</strong>
+                        <br><br>
+                        1. Select categories to merge (you can select multiple)
+                        <br>
+                        2. Choose a target category to merge them into
+                        <br>
+                        3. All transactions from selected categories will be moved to the target category
+                        <br>
+                        4. Budgets will be handled intelligently:
+                        <br>&nbsp;&nbsp;&nbsp;• If target doesn't have a budget for that month → Budget is reassigned
+                        <br>&nbsp;&nbsp;&nbsp;• If target already has a budget for that month → Budgets are <strong>summed together</strong>
+                        <br>
+                        5. Selected source categories will be deleted
+                    </p>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Step 1: Select categories to merge (select multiple):</label>
+                    <div id="merge-source-categories" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.75rem; margin-top: 0.75rem; max-height: 200px; overflow-y: auto;">
+                        <!-- Categories will be loaded here -->
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-top: 1.5rem;">
+                    <label class="form-label">Step 2: Select target category to merge into:</label>
+                    <div id="merge-target-categories" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.75rem; margin-top: 0.75rem; max-height: 200px; overflow-y: auto;">
+                        <!-- Categories will be loaded here -->
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 0.5rem; margin-top: 1.5rem;">
+                    <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeMergeCategoriesModal()">
+                        Cancel
+                    </button>
+                    <button type="button" class="btn btn-primary" style="flex: 1;" onclick="confirmMergeCategories()" id="confirm-merge-btn" disabled>
+                        Merge Categories
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Transactions Modal -->
+    <div id="importTransactionsModal" class="modal">
+    <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-header">
+        <h3>📥 Import Transactions</h3>
+        <span class="close" onclick="closeImportModal()">&times;</span>
+        </div>
+
+        <div class="modal-body" style="padding: 1rem 1.5rem;">
+        <p style="color: #475569; margin-bottom: 1rem;">
+            Upload a <strong>CSV file</strong> with columns:
+            <code>DateTime</code>, <code>Description</code>, <code>Amount</code>, <code>Type</code>, and <code>Category</code>.
+        </p>
+
+        <div class="file-upload-area" id="file-upload-area"
+            style="border: 2px dashed #94a3b8; padding: 2rem; text-align: center; border-radius: 0.5rem; cursor: pointer;">
+            <p style="margin: 0; color: #475569;">
+            <span id="upload-icon" style="font-size: 2rem;">📂</span><br>
+            <span id="upload-text">Click or drag & drop your CSV file here</span>
+            </p>
+            <input type="file" id="importFileInput" accept=".csv" style="display: none;">
+        </div>
+
+        <div id="importPreview" style="margin-top: 1.5rem; display: none;">
+            <h4 style="margin-bottom: 0.5rem;">Preview:</h4>
+            <div id="previewTableContainer"
+                style="max-height: 200px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 0.5rem; background: #f8fafc; padding: 0.5rem;">
+            </div>
+        </div>
+        </div>
+
+        <div class="modal-footer" style="display: flex; gap: 0.75rem; padding: 1rem;">
+        <button class="btn btn-secondary" style="flex: 1;" onclick="closeImportModal()">Cancel</button>
+        <button class="btn btn-primary" style="flex: 1;" id="confirmImportBtn" disabled>Import</button>
+        </div>
+    </div>
+    </div>
+
+
+    <script src="../js/sidebar.js"></script>
+    <script src="../js/coin-system.js"></script>
+    <script src="../js/income-service.js"></script>
+    <script src="../js/expense-service.js"></script>
+    <script src="../js/category-service.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/footer.js"></script>
+    <script src="../js/session-manager.js"></script>
+    <script src="../js/user-display.js"></script>
+    <script src="../js/fab-actions.js"></script>
+    <script src="../js/transactions.js"></script>
+    <script src="../js/transaction-categories.js"></script>
+</body>
+</html>

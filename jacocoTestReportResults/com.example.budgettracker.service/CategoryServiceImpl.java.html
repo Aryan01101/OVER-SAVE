@@ -1,0 +1,398 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CategoryServiceImpl.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">project</a> &gt; <a href="index.source.html" class="el_package">com.example.budgettracker.service</a> &gt; <span class="el_source">CategoryServiceImpl.java</span></div><h1>CategoryServiceImpl.java</h1><pre class="source lang-java linenums">package com.example.budgettracker.service;
+
+import com.example.budgettracker.dto.Category.*;
+import com.example.budgettracker.model.Category;
+import com.example.budgettracker.model.User;
+import com.example.budgettracker.model.enums.CashFlowType;
+import com.example.budgettracker.repository.CashFlowRepository;
+import com.example.budgettracker.repository.CategoryBudgetRepository;
+import com.example.budgettracker.repository.CategoryRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.transaction.Transactional;
+import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.YearMonth;
+
+@Service
+public class CategoryServiceImpl implements CategoryService {
+
+    private final CategoryRepository categoryRepo;
+    private final CashFlowRepository cashFlowRepo;
+    private final CategoryBudgetRepository categoryBudgetRepository;
+    private final EntityManager entityManager;
+
+
+
+    public CategoryServiceImpl(CategoryRepository categoryRepo,
+                               CashFlowRepository cashFlowRepo,
+                               CategoryBudgetRepository categoryBudgetRepository,
+<span class="fc" id="L39">                               EntityManager entityManager) {</span>
+<span class="fc" id="L40">        this.categoryRepo = categoryRepo;</span>
+<span class="fc" id="L41">        this.cashFlowRepo = cashFlowRepo;</span>
+<span class="fc" id="L42">        this.categoryBudgetRepository = categoryBudgetRepository;</span>
+<span class="fc" id="L43">        this.entityManager = entityManager;</span>
+<span class="fc" id="L44">    }</span>
+
+    private static BigDecimal nz(BigDecimal v) {
+<span class="fc bfc" id="L47" title="All 2 branches covered.">        return v == null ? BigDecimal.ZERO : v;</span>
+    }
+
+    @Override
+    @Transactional
+    public List&lt;CategoryResponse&gt; list(Long userId) {
+<span class="fc" id="L53">        List&lt;Category&gt; categories = categoryRepo.findByUser_UserIdOrderByNameAsc(userId);</span>
+<span class="fc" id="L54">        categories = ensureSystemCategories(userId, categories);</span>
+<span class="fc" id="L55">        return categories.stream().map(this::toResp).toList();</span>
+    }
+
+    @Override
+    @Transactional
+    public CategoryResponse create(Long userId, CategoryRequest req) {
+<span class="fc" id="L61">        String norm = normalize(req.getName());</span>
+<span class="fc bfc" id="L62" title="All 2 branches covered.">        if (categoryRepo.existsByUser_UserIdAndNameIgnoreCase(userId, norm)) {</span>
+<span class="fc" id="L63">            throw new IllegalArgumentException(&quot;Category already exists for this user&quot;);</span>
+        }
+<span class="fc" id="L65">        Category saved = categoryRepo.save(Category.builder()</span>
+<span class="fc" id="L66">                .user(User.builder().userId(userId).build())</span>
+<span class="fc" id="L67">                .name(norm)</span>
+<span class="fc" id="L68">                .system(false)</span>
+<span class="fc" id="L69">                .build());</span>
+<span class="fc" id="L70">        return toResp(saved);</span>
+    }
+
+    @Override
+    @Transactional
+    public CategoryResponse rename(Long userId, Long categoryId, CategoryRequest req) {
+<span class="fc" id="L76">        Category c = categoryRepo.findById(categoryId)</span>
+<span class="fc" id="L77">                .orElseThrow(() -&gt; new IllegalArgumentException(&quot;Category not found&quot;));</span>
+<span class="fc bfc" id="L78" title="All 2 branches covered.">        if (!c.getUser().getUserId().equals(userId)) {</span>
+<span class="fc" id="L79">            throw new IllegalStateException(&quot;Forbidden&quot;);</span>
+        }
+<span class="fc bfc" id="L81" title="All 2 branches covered.">        if (c.isSystem()) throw new IllegalStateException(&quot;System category cannot be edited&quot;);</span>
+
+<span class="fc" id="L83">        String norm = normalize(req.getName());</span>
+<span class="fc bfc" id="L84" title="All 2 branches covered.">        if (categoryRepo.existsByUser_UserIdAndNameIgnoreCaseAndCategoryIdNot(userId, norm, categoryId)) {</span>
+<span class="fc" id="L85">            throw new IllegalArgumentException(&quot;Category already exists for this user&quot;);</span>
+        }
+<span class="fc" id="L87">        c.setName(norm);</span>
+<span class="fc" id="L88">        Category saved = categoryRepo.save(c);</span>
+<span class="fc" id="L89">        return toResp(saved);</span>
+    }
+
+    @Override
+    @Transactional
+    public void delete(Long userId, Long categoryId) {
+<span class="fc" id="L95">        Category c = categoryRepo.findById(categoryId)</span>
+<span class="fc" id="L96">                .orElseThrow(() -&gt; new IllegalArgumentException(&quot;Category not found&quot;));</span>
+
+<span class="fc bfc" id="L98" title="All 2 branches covered.">        if (!c.getUser().getUserId().equals(userId)) {</span>
+<span class="fc" id="L99">            throw new IllegalStateException(&quot;Forbidden: category does not belong to this user&quot;);</span>
+        }
+<span class="fc bfc" id="L101" title="All 2 branches covered.">        if (c.isSystem()) {</span>
+<span class="fc" id="L102">            throw new IllegalStateException(&quot;System category cannot be deleted&quot;);</span>
+        }
+
+<span class="fc" id="L105">        int budgetsDeleted = categoryBudgetRepository.deleteByUser_UserIdAndCategory_CategoryId(userId, categoryId);</span>
+<span class="pc bpc" id="L106" title="1 of 2 branches missed.">        if (budgetsDeleted &gt; 0) {</span>
+<span class="fc" id="L107">            System.out.println(&quot;✓ Deleted &quot; + budgetsDeleted + &quot; budget records for category &quot; + categoryId);</span>
+        }
+
+<span class="fc" id="L110">        int cashFlowsDeleted = cashFlowRepo.deleteByUserAndCategory(userId, categoryId);</span>
+<span class="pc bpc" id="L111" title="1 of 2 branches missed.">        if (cashFlowsDeleted &gt; 0) {</span>
+<span class="fc" id="L112">            System.out.println(&quot;✓ Deleted &quot; + cashFlowsDeleted + &quot; cash flow records for category &quot; + categoryId);</span>
+        }
+
+        // Ensure deletions hit the database before removing the category itself
+<span class="fc" id="L116">        entityManager.flush();</span>
+<span class="fc" id="L117">        entityManager.clear();</span>
+
+<span class="fc" id="L119">        categoryRepo.delete(c);</span>
+<span class="fc" id="L120">    }</span>
+
+    @Override
+    @Transactional
+    public int merge(Long userId, CategoryMergeRequest req, Boolean mergeBudgets) {
+        try {
+<span class="fc" id="L126">            System.out.println(&quot;🔀 Starting category merge - userId: &quot; + userId + &quot;, sources: &quot; + req.getSourceIds() + &quot;, target: &quot; + req.getTargetId());</span>
+
+<span class="fc" id="L128">            Category target = categoryRepo.findById(req.getTargetId())</span>
+<span class="fc" id="L129">                    .orElseThrow(() -&gt; new IllegalArgumentException(&quot;Target category not found&quot;));</span>
+<span class="fc bfc" id="L130" title="All 2 branches covered.">            if (!target.getUser().getUserId().equals(userId)) {</span>
+<span class="fc" id="L131">                throw new IllegalStateException(&quot;Forbidden: target category not owned by this user&quot;);</span>
+            }
+
+<span class="fc" id="L134">            List&lt;Long&gt; sources = req.getSourceIds().stream()</span>
+<span class="fc bfc" id="L135" title="All 2 branches covered.">                    .filter(id -&gt; !id.equals(req.getTargetId()))</span>
+<span class="fc" id="L136">                    .toList();</span>
+<span class="fc bfc" id="L137" title="All 2 branches covered.">            if (sources.isEmpty()) {</span>
+<span class="fc" id="L138">                System.out.println(&quot;⚠️ No valid source categories after filtering&quot;);</span>
+<span class="fc" id="L139">                return 0;</span>
+            }
+
+<span class="fc" id="L142">            System.out.println(&quot;✓ Target category validated: &quot; + target.getName());</span>
+
+
+<span class="fc" id="L145">            List&lt;Long&gt; nonSystemSources = new java.util.ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L146" title="All 2 branches covered.">            for (Long sid : sources) {</span>
+<span class="fc" id="L147">                Category src = categoryRepo.findById(sid)</span>
+<span class="fc" id="L148">                        .orElseThrow(() -&gt; new IllegalArgumentException(&quot;Source category not found: &quot; + sid));</span>
+<span class="fc bfc" id="L149" title="All 2 branches covered.">                if (!src.getUser().getUserId().equals(userId)) {</span>
+<span class="fc" id="L150">                    throw new IllegalStateException(&quot;Forbidden: source category &quot; + sid + &quot; not owned by this user&quot;);</span>
+                }
+<span class="fc bfc" id="L152" title="All 2 branches covered.">                if (src.isSystem()) {</span>
+<span class="fc" id="L153">                    System.out.println(&quot;⚠️ Skipping system category: &quot; + src.getName() + &quot; (ID: &quot; + sid + &quot;)&quot;);</span>
+<span class="fc" id="L154">                    continue;</span>
+                }
+<span class="fc" id="L156">                nonSystemSources.add(sid);</span>
+<span class="fc" id="L157">                System.out.println(&quot;✓ Source category validated: &quot; + src.getName() + &quot; (ID: &quot; + sid + &quot;)&quot;);</span>
+<span class="fc" id="L158">            }</span>
+
+
+<span class="pc bpc" id="L161" title="1 of 2 branches missed.">            if (nonSystemSources.isEmpty()) {</span>
+<span class="nc" id="L162">                System.out.println(&quot;⚠️ No non-system source categories to merge&quot;);</span>
+<span class="nc" id="L163">                return 0;</span>
+            }
+
+
+<span class="fc" id="L167">            int totalBudgetsAffected = 0;</span>
+<span class="fc bfc" id="L168" title="All 2 branches covered.">            for (Long sid : nonSystemSources) {</span>
+<span class="pc bpc" id="L169" title="3 of 4 branches missed.">                if (mergeBudgets != null &amp;&amp; mergeBudgets) {</span>
+
+<span class="nc" id="L171">                    System.out.println(&quot;📊 Processing budgets for category &quot; + sid);</span>
+
+
+<span class="nc" id="L174">                    List&lt;com.example.budgettracker.model.CategoryBudget&gt; sourceBudgets =</span>
+<span class="nc" id="L175">                        categoryBudgetRepository.findByUser_UserIdAndCategory_CategoryId(userId, sid);</span>
+
+<span class="nc" id="L177">                    int budgetsMerged = 0;</span>
+<span class="nc" id="L178">                    int budgetsSummed = 0;</span>
+
+<span class="nc bnc" id="L180" title="All 2 branches missed.">                    for (com.example.budgettracker.model.CategoryBudget sourceBudget : sourceBudgets) {</span>
+<span class="nc" id="L181">                        String yearMonth = sourceBudget.getYearMonth();</span>
+
+
+<span class="nc" id="L184">                        var targetBudgetOpt = categoryBudgetRepository</span>
+<span class="nc" id="L185">                            .findByUser_UserIdAndCategory_CategoryIdAndYearMonth(userId, req.getTargetId(), yearMonth);</span>
+
+<span class="nc bnc" id="L187" title="All 2 branches missed.">                        if (targetBudgetOpt.isPresent()) {</span>
+
+<span class="nc" id="L189">                            com.example.budgettracker.model.CategoryBudget targetBudget = targetBudgetOpt.get();</span>
+<span class="nc" id="L190">                            BigDecimal originalTargetAmount = targetBudget.getAmount();</span>
+<span class="nc" id="L191">                            BigDecimal combinedAmount = originalTargetAmount.add(sourceBudget.getAmount());</span>
+<span class="nc" id="L192">                            targetBudget.setAmount(combinedAmount);</span>
+<span class="nc" id="L193">                            categoryBudgetRepository.save(targetBudget);</span>
+
+
+<span class="nc" id="L196">                            categoryBudgetRepository.delete(sourceBudget);</span>
+
+<span class="nc" id="L198">                            budgetsSummed++;</span>
+<span class="nc" id="L199">                            System.out.println(&quot;  ✓ Summed budgets for &quot; + yearMonth + &quot;: &quot; +</span>
+<span class="nc" id="L200">                                sourceBudget.getAmount() + &quot; + &quot; + originalTargetAmount +</span>
+                                &quot; = &quot; + combinedAmount);
+<span class="nc" id="L202">                        } else {</span>
+
+<span class="nc" id="L204">                            sourceBudget.setCategory(com.example.budgettracker.model.Category.builder()</span>
+<span class="nc" id="L205">                                .categoryId(req.getTargetId()).build());</span>
+<span class="nc" id="L206">                            categoryBudgetRepository.save(sourceBudget);</span>
+
+<span class="nc" id="L208">                            budgetsMerged++;</span>
+<span class="nc" id="L209">                            System.out.println(&quot;  ✓ Reassigned budget for &quot; + yearMonth + &quot;: &quot; + sourceBudget.getAmount());</span>
+                        }
+<span class="nc" id="L211">                    }</span>
+
+<span class="nc" id="L213">                    totalBudgetsAffected += budgetsMerged + budgetsSummed;</span>
+<span class="nc" id="L214">                    System.out.println(&quot;✓ Category &quot; + sid + &quot;: &quot; + budgetsMerged + &quot; reassigned, &quot; +</span>
+<span class="nc" id="L215">                        budgetsSummed + &quot; summed (total: &quot; + sourceBudgets.size() + &quot;)&quot;);</span>
+<span class="nc" id="L216">                } else {</span>
+
+<span class="fc" id="L218">                    int budgetsDeleted = categoryBudgetRepository.deleteByUser_UserIdAndCategory_CategoryId(userId, sid);</span>
+<span class="fc" id="L219">                    totalBudgetsAffected += budgetsDeleted;</span>
+<span class="fc" id="L220">                    System.out.println(&quot;✓ Deleted &quot; + budgetsDeleted + &quot; budget records from category &quot; + sid);</span>
+                }
+<span class="fc" id="L222">            }</span>
+<span class="pc bpc" id="L223" title="1 of 2 branches missed.">            if (totalBudgetsAffected &gt; 0) {</span>
+<span class="nc" id="L224">                System.out.println(&quot;✓ Total budgets affected: &quot; + totalBudgetsAffected);</span>
+            }
+
+            // Force flush budget changes to database immediately to preserve ordering
+<span class="fc" id="L228">            entityManager.flush();</span>
+<span class="fc" id="L229">            entityManager.clear();</span>
+<span class="fc" id="L230">            System.out.println(&quot;✓ Budget changes flushed to database&quot;);</span>
+
+
+<span class="fc" id="L233">            System.out.println(&quot;🔄 Reassigning cash flows from sources to target...&quot;);</span>
+<span class="fc" id="L234">            int affected = cashFlowRepo.reassignUserCategoryIn(userId, nonSystemSources, req.getTargetId());</span>
+<span class="fc" id="L235">            System.out.println(&quot;✓ Reassigned &quot; + affected + &quot; cash flow records&quot;);</span>
+
+
+<span class="fc" id="L238">            entityManager.flush();</span>
+<span class="fc" id="L239">            entityManager.clear();</span>
+<span class="fc" id="L240">            System.out.println(&quot;✓ Changes flushed to database&quot;);</span>
+
+
+<span class="fc" id="L243">            System.out.println(&quot;🗑️ Deleting source categories...&quot;);</span>
+<span class="fc bfc" id="L244" title="All 2 branches covered.">            for (Long sid : nonSystemSources) {</span>
+<span class="fc" id="L245">                Category src = categoryRepo.findById(sid).orElseThrow();</span>
+<span class="fc" id="L246">                categoryRepo.delete(src);</span>
+<span class="fc" id="L247">                System.out.println(&quot;✓ Deleted category: &quot; + src.getName() + &quot; (ID: &quot; + sid + &quot;)&quot;);</span>
+<span class="fc" id="L248">            }</span>
+
+<span class="fc" id="L250">            System.out.println(&quot;✅ Category merge completed successfully - &quot; + affected + &quot; cash flow records affected, &quot; + totalBudgetsAffected + &quot; budget records affected&quot;);</span>
+<span class="fc" id="L251">            return affected;</span>
+
+<span class="fc" id="L253">        } catch (IllegalArgumentException | IllegalStateException e) {</span>
+<span class="fc" id="L254">            System.err.println(&quot;❌ Merge validation failed: &quot; + e.getMessage());</span>
+<span class="fc" id="L255">            throw e;</span>
+<span class="nc" id="L256">        } catch (Exception e) {</span>
+<span class="nc" id="L257">            System.err.println(&quot;❌ Unexpected error during category merge: &quot; + e.getMessage());</span>
+<span class="nc" id="L258">            e.printStackTrace();</span>
+<span class="nc" id="L259">            throw new RuntimeException(&quot;Failed to merge categories: &quot; + e.getMessage(), e);</span>
+        }
+    }
+
+    @Override
+    public CategorySummaryResponse categorySummary(Long userId, Long categoryId, String month) {
+
+<span class="fc" id="L266">        boolean ok = categoryRepo.existsByCategoryIdAndUser_UserId(categoryId, userId);</span>
+<span class="fc bfc" id="L267" title="All 2 branches covered.">        if (!ok) throw new IllegalArgumentException(&quot;Category not found for user&quot;);</span>
+
+
+<span class="pc bpc" id="L270" title="1 of 4 branches missed.">        YearMonth ym = (month == null || month.isBlank()) ? YearMonth.now() : YearMonth.parse(month);</span>
+<span class="fc" id="L271">        LocalDate start = ym.atDay(1);</span>
+<span class="fc" id="L272">        LocalDate end   = ym.atEndOfMonth();</span>
+<span class="fc" id="L273">        LocalDateTime rangeStart = start.atStartOfDay();</span>
+<span class="fc" id="L274">        LocalDateTime rangeEnd = end.atTime(LocalTime.MAX);</span>
+
+
+<span class="fc" id="L277">        Category cat = categoryRepo.findById(categoryId)</span>
+<span class="fc" id="L278">                .orElseThrow(() -&gt; new IllegalArgumentException(&quot;Category not found&quot;));</span>
+
+
+<span class="fc" id="L281">        long count = cashFlowRepo.countByUserAndCategoryAndOccurredAtBetween(userId, categoryId, rangeStart, rangeEnd);</span>
+<span class="fc" id="L282">        BigDecimal expense = nz(cashFlowRepo.sumByTypeInRange(userId, categoryId, rangeStart, rangeEnd, CashFlowType.Expense));</span>
+<span class="fc" id="L283">        BigDecimal income  = nz(cashFlowRepo.sumByTypeInRange(userId, categoryId, rangeStart, rangeEnd, CashFlowType.Income));</span>
+
+
+<span class="fc" id="L286">        BigDecimal budget = categoryBudgetRepository</span>
+<span class="fc" id="L287">                .findByUser_UserIdAndCategory_CategoryIdAndYearMonth(userId, categoryId, ym.toString())</span>
+<span class="fc" id="L288">                .map(b -&gt; b.getAmount())</span>
+<span class="fc" id="L289">                .orElse(BigDecimal.ZERO);</span>
+
+<span class="fc" id="L291">        BigDecimal remaining = budget.subtract(expense);</span>
+<span class="fc bfc" id="L292" title="All 2 branches covered.">        if (remaining.signum() &lt; 0) remaining = BigDecimal.ZERO;</span>
+
+<span class="fc" id="L294">        BigDecimal pct = BigDecimal.ZERO;</span>
+<span class="fc bfc" id="L295" title="All 2 branches covered.">        if (budget.signum() &gt; 0) {</span>
+<span class="fc" id="L296">            pct = expense.multiply(BigDecimal.valueOf(100))</span>
+<span class="fc" id="L297">                    .divide(budget, 2, RoundingMode.HALF_UP);</span>
+        }
+
+<span class="fc" id="L300">        CategoryResponse catResp = new CategoryResponse(cat.getCategoryId(), cat.getName(), cat.isSystem());</span>
+
+<span class="fc" id="L302">        return new CategorySummaryResponse(</span>
+                catResp,
+<span class="fc" id="L304">                ym.toString(),</span>
+                count,
+                expense,
+                income,
+                budget,
+                remaining,
+                pct
+        );
+    }
+
+    @Override
+    public List&lt;CategoryRecordResponse&gt; listCategoryRecords(Long userId, Long categoryId, String month, String type) {
+
+<span class="fc" id="L317">        boolean ok = categoryRepo.existsByCategoryIdAndUser_UserId(categoryId, userId);</span>
+<span class="fc bfc" id="L318" title="All 2 branches covered.">        if (!ok) throw new IllegalArgumentException(&quot;Category not found for user&quot;);</span>
+
+<span class="pc bpc" id="L320" title="1 of 4 branches missed.">        YearMonth ym = (month == null || month.isBlank()) ? YearMonth.now() : YearMonth.parse(month);</span>
+<span class="fc" id="L321">        LocalDate start = ym.atDay(1), end = ym.atEndOfMonth();</span>
+<span class="fc" id="L322">        LocalDateTime rangeStart = start.atStartOfDay();</span>
+<span class="fc" id="L323">        LocalDateTime rangeEnd = end.atTime(LocalTime.MAX);</span>
+
+<span class="fc" id="L325">        CashFlowType t = null;</span>
+<span class="pc bpc" id="L326" title="1 of 4 branches missed.">        if (type != null &amp;&amp; !type.isBlank()) {</span>
+<span class="fc" id="L327">            t = CashFlowType.valueOf(type);</span>
+        }
+
+<span class="fc" id="L330">        return cashFlowRepo.findByUserCategoryPeriodAndOptionalType(userId, categoryId, rangeStart, rangeEnd, t)</span>
+<span class="fc" id="L331">                .stream()</span>
+<span class="fc" id="L332">                .map(e -&gt; new CategoryRecordResponse(</span>
+<span class="fc" id="L333">                        e.getCashFlowId(),</span>
+<span class="fc" id="L334">                        e.getType().name(),</span>
+<span class="fc" id="L335">                        e.getAmount(),</span>
+<span class="fc" id="L336">                        e.getOccurredAt(),</span>
+<span class="fc" id="L337">                        e.getDescription(),</span>
+<span class="pc bpc" id="L338" title="1 of 2 branches missed.">                        e.getAccount() == null ? null : e.getAccount().getAccountId(),</span>
+<span class="fc bfc" id="L339" title="All 2 branches covered.">                        e.getCategory() == null ? null : e.getCategory().getCategoryId()</span>
+                ))
+<span class="fc" id="L341">                .toList();</span>
+    }
+
+    @Override
+    @Transactional
+    public void ensureSystemCategoriesForUser(Long userId) {
+<span class="nc" id="L347">        ensureSystemCategories(userId, null);</span>
+<span class="nc" id="L348">    }</span>
+
+
+    /* ---------------- private helpers ---------------- */
+
+    private List&lt;Category&gt; ensureSystemCategories(Long userId, List&lt;Category&gt; existing) {
+<span class="pc bpc" id="L354" title="1 of 2 branches missed.">        List&lt;Category&gt; categories = existing != null</span>
+<span class="fc" id="L355">                ? new ArrayList&lt;&gt;(existing)</span>
+<span class="pc" id="L356">                : new ArrayList&lt;&gt;(categoryRepo.findByUser_UserIdOrderByNameAsc(userId));</span>
+
+<span class="fc" id="L358">        Set&lt;String&gt; existingNames = new HashSet&lt;&gt;();</span>
+<span class="fc bfc" id="L359" title="All 2 branches covered.">        for (Category category : categories) {</span>
+<span class="pc bpc" id="L360" title="2 of 4 branches missed.">            if (category != null &amp;&amp; category.getName() != null) {</span>
+<span class="fc" id="L361">                existingNames.add(category.getName().trim().toLowerCase());</span>
+            }
+<span class="fc" id="L363">        }</span>
+
+<span class="fc" id="L365">        List&lt;Category&gt; added = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L366" title="All 2 branches covered.">        for (String defaultName : SystemCategoryDefaults.NAMES) {</span>
+<span class="fc" id="L367">            String normalized = defaultName.trim().toLowerCase();</span>
+<span class="fc bfc" id="L368" title="All 2 branches covered.">            if (!existingNames.contains(normalized)) {</span>
+<span class="fc" id="L369">                Category newCategory = Category.builder()</span>
+<span class="fc" id="L370">                        .user(User.builder().userId(userId).build())</span>
+<span class="fc" id="L371">                        .name(defaultName)</span>
+<span class="fc" id="L372">                        .system(true)</span>
+<span class="fc" id="L373">                        .build();</span>
+<span class="fc" id="L374">                Category saved = categoryRepo.save(newCategory);</span>
+<span class="fc" id="L375">                added.add(saved);</span>
+<span class="fc" id="L376">                existingNames.add(normalized);</span>
+            }
+<span class="fc" id="L378">        }</span>
+
+<span class="fc bfc" id="L380" title="All 2 branches covered.">        if (!added.isEmpty()) {</span>
+<span class="fc" id="L381">            entityManager.flush();</span>
+<span class="fc" id="L382">            entityManager.clear();</span>
+<span class="fc" id="L383">            categories.addAll(added);</span>
+<span class="fc" id="L384">            categories.sort(Comparator.comparing(Category::getName, String.CASE_INSENSITIVE_ORDER));</span>
+        }
+
+<span class="fc" id="L387">        return categories;</span>
+    }
+
+    private CategoryResponse toResp(Category c) {
+<span class="fc" id="L391">        return new CategoryResponse(c.getCategoryId(), c.getName(), c.isSystem());</span>
+    }
+
+    private String normalize(String name) {
+<span class="fc" id="L395">        return name.trim().replaceAll(&quot;\\s+&quot;, &quot; &quot;);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

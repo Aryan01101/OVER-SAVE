@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OVER-SAVE - Goals</title>
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/goals.css">
+</head>
+<body>
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="logo-section">
+            <div class="logo">
+                <span>💰</span><span>OVER-SAVE</span>
+            </div>
+        </div>
+        <nav class="nav-menu">
+            <a href="oversave-dashboard.html" class="nav-item">Dashboard</a>
+            <a href="transactions_page.html" class="nav-item">Transactions</a>
+            <a href="budgets_page.html" class="nav-item">Budgets</a>
+            <a href="goals_page.html" class="nav-item active">Goals</a>
+            <a href="subscriptions_page.html" class="nav-item">Subscriptions</a>
+            <a href="shopping_page.html" class="nav-item">Rewards Shop</a>
+            <a href="settings_page.html" class="nav-item">Settings</a>
+        </nav>
+    </aside>
+
+    <!-- Sidebar Toggle Button -->
+    <button class="sidebar-toggle" onclick="toggleSidebar()" title="Toggle Sidebar">
+        <span id="toggle-icon">☰</span>
+    </button>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <h1>Savings Goals</h1>
+                
+            </div>
+            
+            <div class="header-actions">
+                <div class="budget-coin-balance" onclick="navigateToRewardsShop()" style="cursor: pointer;" title="Click to visit Rewards Shop">
+                    <span class="coin-icon">🪙</span>
+                    <span id="budget-coin-balance">0</span>
+                    <span>Budget Coins</span>
+                </div>
+
+                <div class="header-user-section">
+                    <div class="header-user-info">
+                        <div class="header-user-details">
+                            <div class="header-user-name">Loading...</div>
+                            <div class="header-user-email">Loading...</div>
+                        </div>
+                        <div class="header-user-avatar">??</div>
+                    </div>
+                    <button onclick="logout()" class="header-logout-btn" title="Logout">
+                        <span class="logout-icon">⏻</span>
+                        <span class="logout-text">Logout</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Goals Content -->
+        <div class="goals-content">
+            <!-- Goals Summary -->
+            <div class="goals-summary">
+                <div class="summary-card total">
+                    <div class="summary-icon">🎯</div>
+                    <div class="summary-value"></div>
+                    <div class="summary-label">Total Goal Value</div>
+                </div>
+                <div class="summary-card saved">
+                    <div class="summary-icon">💰</div>
+                    <div class="summary-value"></div>
+                    <div class="summary-label">Amount Saved</div>
+                </div>
+                <div class="summary-card remaining">
+                    <div class="summary-icon">⏳</div>
+                    <div class="summary-value"></div>
+                    <div class="summary-label">Remaining</div>
+                </div>
+                <div class="summary-card active">
+                    <div class="summary-icon">📈</div>
+                    <div class="summary-value"></div>
+                    <div class="summary-label">Active Goals</div>
+                </div>
+            </div>
+
+            
+            <!-- Tab Navigation -->
+            <div class="tab-navigation">
+                <button class="tab-btn active" onclick="switchTab('active')">🎯 Active Goals</button>
+                <button class="tab-btn" onclick="switchTab('completed')">✅ Completed</button>
+            </div>
+
+            <!-- Active Goals Tab -->
+            <div class="tab-content active" id="active-tab">
+                <div class="goals-main-layout">
+                    <div class="goals-grid">
+                    </div>
+
+                    <!-- Sidebar -->
+                    <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                        <!-- Quick Add Goal -->
+                        <div class="quick-add-card">
+                            <h3 style="margin-bottom: 1rem;">🎯 Add Goal</h3>
+
+                            <form id="quick-add-goal-form">
+                                <div class="form-group">
+                                    <label class="form-label">Goal Name *</label>
+                                    <input type="text" class="form-control" id="quick-goal-name"
+                                           placeholder="e.g., Emergency Fund, New Laptop..."
+                                           maxlength="100" required>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label">Target Amount *</label>
+                                    <div class="amount-input-group">
+                                        <span class="currency-symbol">$</span>
+                                        <input type="number" class="form-control amount-input" id="quick-goal-target"
+                                               placeholder="0.00" step="0.01" min="0.01" max="9999999.99" required>
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label">Target Date *</label>
+                                    <input type="date" class="form-control" id="quick-goal-deadline" required>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label">Description</label>
+                                    <textarea class="form-control" id="quick-goal-description"
+                                              placeholder="Optional: Describe your goal..."
+                                              maxlength="500" rows="3"></textarea>
+                                    <small class="form-help">Optional: Add more details about your goal</small>
+                                </div>
+
+                                <button type="submit" class="btn btn-primary" style="width: 100%;">
+                                    💾 Create Goal
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Completed Goals Tab -->
+            <div class="tab-content" id="completed-tab">
+                <div class="goals-grid">
+                </div>
+            </div>
+
+            <!-- Milestones Tab -->
+            <div class="tab-content" id="milestones-tab">
+                <div class="milestones-section">
+                    <div class="chart-header">
+                        <h3 class="chart-title">Recent Milestones & Achievements</h3>
+                        <span style="font-size: 0.875rem; color: var(--gray);">Your savings journey</span>
+                    </div>
+                    
+                    <div class="milestone-list">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Contribute Modal -->
+    <div class="modal" id="contributeModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Add Contribution</h3>
+                <button class="close-btn" onclick="closeContributeModal()">&times;</button>
+            </div>
+            
+            <div class="contribution-summary" id="contribution-summary">
+                <!-- Dynamic content will be populated -->
+            </div>
+
+            <form id="contribute-form">
+                <div class="form-group">
+                    <label class="form-label">Quick Amount</label>
+                    <div class="contribution-options">
+                        <div class="quick-amount" data-amount="25">$25</div>
+                        <div class="quick-amount" data-amount="50">$50</div>
+                        <div class="quick-amount" data-amount="100">$100</div>
+                        <div class="quick-amount" data-amount="250">$250</div>
+                        <div class="quick-amount" data-amount="500">$500</div>
+                        <div class="quick-amount" data-amount="custom">Custom</div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Contribution Amount</label>
+                    <div class="currency-input-group">
+                        <span class="currency-symbol">$</span>
+                        <input type="number" class="form-control currency-input" id="contribution-amount" placeholder="0.00" step="0.01" min="0.01" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">From Account</label>
+                    <div id="contribution-account-info" style="background: #f1f5f9; border: 1px solid #dfe7f5; border-radius: 0.75rem; padding: 0.9rem; font-size: 0.9rem; color: #1e293b;">
+                        Loading account information...
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Notes (Optional)</label>
+                    <textarea class="form-control" placeholder="Add a note about this contribution..." rows="2" maxlength="100"></textarea>
+                </div>
+
+                <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                    <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeContributeModal()">
+                        Cancel
+                    </button>
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">
+                        💰 Add Contribution
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="../js/sidebar.js"></script>
+    <script src="../js/coin-system.js"></script>
+    <script src="../js/income-service.js"></script>
+    <script src="../js/expense-service.js"></script>
+    <script src="../js/budget-service.js"></script>
+    <script src="../js/goal-service.js"></script>
+    <script src="../js/goals.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/footer.js"></script>
+    <script src="../js/user-display.js"></script>
+    <script src="../js/fab-actions.js"></script>
+</body>
+</html>

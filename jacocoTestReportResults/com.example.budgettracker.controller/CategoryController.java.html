@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CategoryController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">project</a> &gt; <a href="index.source.html" class="el_package">com.example.budgettracker.controller</a> &gt; <span class="el_source">CategoryController.java</span></div><h1>CategoryController.java</h1><pre class="source lang-java linenums">package com.example.budgettracker.controller;
+
+import com.example.budgettracker.dto.Category.*;
+import com.example.budgettracker.model.CategoryBudget;
+import com.example.budgettracker.repository.CategoryBudgetRepository;
+import com.example.budgettracker.service.CategoryService;
+import jakarta.validation.Valid;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.math.BigDecimal;
+import java.util.List;
+
+@RestController
+@RequestMapping(&quot;/api/categories&quot;)
+public class CategoryController extends BaseController {
+
+    private final CategoryService service;
+    private final CategoryBudgetRepository categoryBudgetRepository;
+
+<span class="nc" id="L21">    public CategoryController(CategoryService service, CategoryBudgetRepository categoryBudgetRepository) {</span>
+<span class="nc" id="L22">        this.service = service;</span>
+<span class="nc" id="L23">        this.categoryBudgetRepository = categoryBudgetRepository;</span>
+<span class="nc" id="L24">    }</span>
+
+    @GetMapping
+    public List&lt;CategoryResponse&gt; list(@RequestHeader(&quot;Authorization&quot;) String authHeader) {
+<span class="nc" id="L28">        Long userId = getUserIdFromToken(authHeader);</span>
+<span class="nc" id="L29">        return service.list(userId);</span>
+    }
+
+    @PostMapping
+    public ResponseEntity&lt;CategoryResponse&gt; create(@RequestHeader(&quot;Authorization&quot;) String authHeader,
+                                                   @Valid @RequestBody CategoryRequest req) {
+<span class="nc" id="L35">        Long userId = getUserIdFromToken(authHeader);</span>
+<span class="nc" id="L36">        return ResponseEntity.ok(service.create(userId, req));</span>
+    }
+
+    @PutMapping(&quot;/{id}&quot;)
+    public ResponseEntity&lt;CategoryResponse&gt; rename(@RequestHeader(&quot;Authorization&quot;) String authHeader,
+                                                   @PathVariable Long id,
+                                                   @Valid @RequestBody CategoryRequest req) {
+<span class="nc" id="L43">        Long userId = getUserIdFromToken(authHeader);</span>
+<span class="nc" id="L44">        return ResponseEntity.ok(service.rename(userId, id, req));</span>
+    }
+
+    @DeleteMapping(&quot;/{id}&quot;)
+    public ResponseEntity&lt;?&gt; delete(@RequestHeader(&quot;Authorization&quot;) String authHeader,
+                                    @PathVariable Long id) {
+<span class="nc" id="L50">        Long userId = getUserIdFromToken(authHeader);</span>
+<span class="nc" id="L51">        service.delete(userId, id);</span>
+<span class="nc" id="L52">        return ResponseEntity.noContent().build();</span>
+    }
+
+    @PostMapping(&quot;/merge&quot;)
+    public ResponseEntity&lt;?&gt; merge(@RequestHeader(&quot;Authorization&quot;) String authHeader,
+                                   @Valid @RequestBody CategoryMergeRequest req,
+                                   @RequestParam(required = false) Boolean mergeBudgets) {
+<span class="nc" id="L59">        Long userId = getUserIdFromToken(authHeader);</span>
+<span class="nc" id="L60">        int affected = service.merge(userId, req, mergeBudgets);</span>
+<span class="nc" id="L61">        return ResponseEntity.ok().body(new Object(){ public final int reassigned = affected; });</span>
+    }
+
+    @GetMapping(&quot;/{id}/summary&quot;)
+    public CategorySummaryResponse categorySummary(@RequestHeader(&quot;Authorization&quot;) String authHeader,
+                                                   @PathVariable Long id,
+                                                   @RequestParam(required = false) String month) {
+<span class="nc" id="L68">        Long userId = getUserIdFromToken(authHeader);</span>
+<span class="nc" id="L69">        return service.categorySummary(userId, id, month);</span>
+    }
+
+    @GetMapping(&quot;/{id}/records&quot;)
+    public List&lt;CategoryRecordResponse&gt; listCategoryRecords(
+            @RequestHeader(&quot;Authorization&quot;) String authHeader,
+            @PathVariable Long id,
+            @RequestParam(required = false) String month,
+            @RequestParam(required = false) String type // Can be Income / Expense
+    ) {
+<span class="nc" id="L79">        Long userId = getUserIdFromToken(authHeader);</span>
+<span class="nc" id="L80">        return service.listCategoryRecords(userId, id, month, type);</span>
+    }
+
+    @GetMapping(&quot;/{id}/budgets&quot;)
+    public List&lt;CategoryBudgetInfo&gt; listBudgets(
+            @RequestHeader(&quot;Authorization&quot;) String authHeader,
+            @PathVariable Long id) {
+<span class="nc" id="L87">        Long userId = getUserIdFromToken(authHeader);</span>
+<span class="nc" id="L88">        return categoryBudgetRepository</span>
+<span class="nc" id="L89">                .findByUser_UserIdAndCategory_CategoryId(userId, id)</span>
+<span class="nc" id="L90">                .stream()</span>
+<span class="nc" id="L91">                .map(cb -&gt; new CategoryBudgetInfo(cb.getYearMonth(), cb.getAmount(), cb.getCustomName()))</span>
+<span class="nc" id="L92">                .toList();</span>
+    }
+
+    // Simple DTO for budget information
+<span class="nc" id="L96">    public record CategoryBudgetInfo(String yearMonth, BigDecimal amount, String customName) {}</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

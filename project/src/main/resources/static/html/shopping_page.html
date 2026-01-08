@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OVER-SAVE - Rewards Shop</title>
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/shopping.css">
+</head>
+<body>
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="logo-section">
+            <div class="logo">
+                <span>💰</span><span>OVER-SAVE</span>
+            </div>
+        </div>
+        <nav class="nav-menu">
+            <a href="oversave-dashboard.html" class="nav-item">Dashboard</a>
+            <a href="transactions_page.html" class="nav-item">Transactions</a>
+            <a href="budgets_page.html" class="nav-item">Budgets</a>
+            <a href="goals_page.html" class="nav-item">Goals</a>
+            <a href="subscriptions_page.html" class="nav-item">Subscriptions</a>
+            <a href="shopping_page.html" class="nav-item active">Rewards Shop</a>
+            <a href="settings_page.html" class="nav-item">Settings</a>
+        </nav>
+    </aside>
+
+    <!-- Sidebar Toggle Button -->
+    <button class="sidebar-toggle" onclick="toggleSidebar()" title="Toggle Sidebar">
+        <span id="toggle-icon">☰</span>
+    </button>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Header with Balance -->
+        <header class="header">
+            <div class="header-left">
+                <h1>Rewards Shop</h1>
+                
+            </div>
+            
+            <div class="header-actions">
+                <div class="budget-coin-balance" onclick="showEarningsHistory()">
+                    <span class="coin-icon">🪙</span>
+                    <span id="current-balance">0</span>
+                    <span>Budget Coins</span>
+                </div>
+
+                <div class="header-user-section">
+                    <div class="header-user-info">
+                        <div class="header-user-details">
+                            <div class="header-user-name">Loading...</div>
+                            <div class="header-user-email">Loading...</div>
+                        </div>
+                        <div class="header-user-avatar">??</div>
+                    </div>
+                    <button onclick="logout()" class="header-logout-btn" title="Logout">
+                        <span class="logout-icon">⏻</span>
+                        <span class="logout-text">Logout</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Shopping Content -->
+        <div class="shopping-content">
+            <!-- Featured Section -->
+            <div class="featured-section">
+                <div class="featured-banner">
+                    <div class="featured-title">🔥 Weekly Featured Deals</div>
+                    <div class="featured-subtitle">Limited time offers with exclusive discounts!</div>
+                </div>
+            </div>
+
+            <!-- Recent Earnings -->
+            <div class="earnings-section">
+                <h3 style="margin-bottom: 1rem; color: var(--dark);">Recent Earnings 💰</h3>
+                <!-- Earnings will be dynamically loaded here -->
+            </div>
+
+            <!-- All Products -->
+            <div class="products-grid">
+                <!-- Items will be dynamically loaded here -->
+            </div>
+        </div>
+    </main>
+
+    <!-- Purchase Success Modal -->
+    <div class="modal" id="purchaseModal">
+        <div class="modal-content">
+            <div class="success-icon">🎉</div>
+            <div class="modal-title">Purchase Successful!</div>
+            <div class="modal-description" id="purchase-description">
+                Your reward has been purchased successfully.
+            </div>
+            <div style="display: flex; gap: 1rem;">
+                <button class="btn btn-primary" style="flex: 1;" onclick="closePurchaseModal()">
+                    Awesome!
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/shopping.js"></script>
+    <script src="../js/sidebar.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/footer.js"></script>
+    <script src="../js/user-display.js"></script>
+    <script src="../js/fab-actions.js"></script>
+    <script src="../js/budgetcoin-service.js"></script>
+</body>
+</html>

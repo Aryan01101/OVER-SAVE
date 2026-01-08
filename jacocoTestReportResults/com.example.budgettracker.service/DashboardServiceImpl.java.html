@@ -1,0 +1,399 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DashboardServiceImpl.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">project</a> &gt; <a href="index.source.html" class="el_package">com.example.budgettracker.service</a> &gt; <span class="el_source">DashboardServiceImpl.java</span></div><h1>DashboardServiceImpl.java</h1><pre class="source lang-java linenums">package com.example.budgettracker.service;
+
+import com.example.budgettracker.dto.BudgetSummaryResponse;
+import com.example.budgettracker.dto.Dashboard.*;
+import com.example.budgettracker.dto.Goal.GoalResponse;
+import com.example.budgettracker.model.CashFlow;
+import com.example.budgettracker.model.Category;
+import com.example.budgettracker.model.Goal;
+import com.example.budgettracker.model.Subscription;
+import com.example.budgettracker.model.enums.CashFlowType;
+import com.example.budgettracker.model.enums.GoalStatus;
+import com.example.budgettracker.repository.CashFlowRepository;
+import com.example.budgettracker.repository.CategoryRepository;
+import com.example.budgettracker.repository.GoalRepository;
+import com.example.budgettracker.repository.SubscriptionRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.YearMonth;
+import java.time.format.TextStyle;
+import java.util.*;
+import java.util.stream.Collectors;
+
+/**
+ * FR-14: Dashboard Service Implementation
+ * Aggregates data from existing tables (no ERD changes needed)
+ */
+@Service
+<span class="fc" id="L35">@Slf4j</span>
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
+public class DashboardServiceImpl implements DashboardService {
+
+    private final CashFlowRepository cashFlowRepository;
+    private final SubscriptionRepository subscriptionRepository;
+    private final GoalRepository goalRepository;
+    private final CategoryRepository categoryRepository;
+    private final BudgetService budgetService;
+
+    @Override
+    public DashboardResponse getDashboardData(Long userId) {
+<span class="fc" id="L48">        log.info(&quot;FR-14: Fetching complete dashboard data for user {}&quot;, userId);</span>
+
+        try {
+            // Fetch all components
+<span class="fc" id="L52">            FinancialAggregatesResponse financialAggregates = getFinancialAggregates(userId);</span>
+<span class="fc" id="L53">            List&lt;BudgetSummaryResponse&gt; budgets = getBudgetSummaries(userId);</span>
+<span class="fc" id="L54">            List&lt;SubscriptionSummaryResponse&gt; subscriptions = getActiveSubscriptions(userId);</span>
+<span class="fc" id="L55">            List&lt;TransactionResponse&gt; recentTransactions = getRecentTransactions(userId, 10);</span>
+<span class="fc" id="L56">            SpendingTrendData spendingTrend = getSpendingTrend(userId, &quot;WEEK&quot;);</span>
+<span class="fc" id="L57">            List&lt;GoalResponse&gt; savingsGoals = getActiveSavingsGoals(userId);</span>
+
+<span class="fc" id="L59">            return DashboardResponse.builder()</span>
+<span class="fc" id="L60">                    .financialAggregates(financialAggregates)</span>
+<span class="fc" id="L61">                    .budgets(budgets)</span>
+<span class="fc" id="L62">                    .subscriptions(subscriptions)</span>
+<span class="fc" id="L63">                    .recentTransactions(recentTransactions)</span>
+<span class="fc" id="L64">                    .spendingTrend(spendingTrend)</span>
+<span class="fc" id="L65">                    .savingsGoals(savingsGoals)</span>
+<span class="fc" id="L66">                    .dataAvailable(true)</span>
+<span class="fc" id="L67">                    .build();</span>
+
+<span class="fc" id="L69">        } catch (Exception e) {</span>
+<span class="fc" id="L70">            log.error(&quot;FR-14: Error fetching dashboard data for user {}&quot;, userId, e);</span>
+            // Return fallback response (FR-14 requirement)
+<span class="fc" id="L72">            return DashboardResponse.builder()</span>
+<span class="fc" id="L73">                    .dataAvailable(false)</span>
+<span class="fc" id="L74">                    .message(&quot;Unable to load dashboard data. Please try again later.&quot;)</span>
+<span class="fc" id="L75">                    .build();</span>
+        }
+    }
+
+    @Override
+    public FinancialAggregatesResponse getFinancialAggregates(Long userId) {
+<span class="fc" id="L81">        log.info(&quot;FR-14: Calculating financial aggregates for user {} (all-time)&quot;, userId);</span>
+
+        // Query all-time aggregates (no date filtering)
+<span class="fc" id="L84">        BigDecimal totalIncome = cashFlowRepository.sumAllIncomeByUser(userId);</span>
+<span class="fc" id="L85">        BigDecimal totalExpenses = cashFlowRepository.sumAllExpenseByUser(userId);</span>
+<span class="fc" id="L86">        BigDecimal currentBalance = cashFlowRepository.computeTotalBalanceByUserId(userId);</span>
+
+<span class="fc" id="L88">        log.info(&quot;FR-14: User {} - Total Income: {}, Total Expenses: {}, Balance: {}&quot;,</span>
+                userId, totalIncome, totalExpenses, currentBalance);
+
+        // Calculate savings rate (all-time)
+<span class="fc" id="L92">        Double savingsRate = 0.0;</span>
+<span class="fc bfc" id="L93" title="All 2 branches covered.">        if (totalIncome.compareTo(BigDecimal.ZERO) &gt; 0) {</span>
+<span class="fc" id="L94">            BigDecimal saved = totalIncome.subtract(totalExpenses);</span>
+<span class="fc" id="L95">            savingsRate = saved.divide(totalIncome, 4, RoundingMode.HALF_UP)</span>
+<span class="fc" id="L96">                    .multiply(BigDecimal.valueOf(100))</span>
+<span class="fc" id="L97">                    .doubleValue();</span>
+        }
+
+        // Calculate total savings from goals
+<span class="fc" id="L101">        List&lt;Goal&gt; goals = goalRepository.findAllByUser_UserIdOrderByIdDesc(userId);</span>
+<span class="fc" id="L102">        BigDecimal totalSavings = goals.stream()</span>
+<span class="fc" id="L103">                .map(Goal::getCurrentAmount)</span>
+<span class="fc" id="L104">                .filter(Objects::nonNull)</span>
+<span class="fc" id="L105">                .reduce(BigDecimal.ZERO, BigDecimal::add);</span>
+
+        // Calculate average goals progress
+<span class="fc bfc" id="L108" title="All 2 branches covered.">        Double goalsProgressPercent = goals.isEmpty() ? 0.0 :</span>
+<span class="fc" id="L109">                goals.stream()</span>
+<span class="fc" id="L110">                        .mapToDouble(goal -&gt; {</span>
+<span class="fc bfc" id="L111" title="All 4 branches covered.">                            if (goal.getTargetAmount() == null || goal.getTargetAmount().compareTo(BigDecimal.ZERO) == 0) {</span>
+<span class="fc" id="L112">                                return 0.0;</span>
+                            }
+<span class="fc" id="L114">                            return goal.getCurrentAmount()</span>
+<span class="fc" id="L115">                                    .divide(goal.getTargetAmount(), 4, java.math.RoundingMode.HALF_UP)</span>
+<span class="fc" id="L116">                                    .multiply(BigDecimal.valueOf(100))</span>
+<span class="fc" id="L117">                                    .doubleValue();</span>
+                        })
+<span class="fc" id="L119">                        .average()</span>
+<span class="fc" id="L120">                        .orElse(0.0);</span>
+
+<span class="fc" id="L122">        log.info(&quot;FR-14: User {} - Savings Rate: {}%, Total Savings from Goals: {}, Goals Progress: {}%&quot;,</span>
+<span class="fc" id="L123">                userId, String.format(&quot;%.1f&quot;, savingsRate), totalSavings, String.format(&quot;%.1f&quot;, goalsProgressPercent));</span>
+
+        // Using same field names for backward compatibility with frontend
+<span class="fc" id="L126">        FinancialAggregatesResponse response = FinancialAggregatesResponse.builder()</span>
+<span class="fc" id="L127">                .monthlyIncome(totalIncome)</span>
+<span class="fc" id="L128">                .monthlyExpenses(totalExpenses)</span>
+<span class="fc" id="L129">                .currentBalance(currentBalance)</span>
+<span class="fc" id="L130">                .totalSavings(totalSavings)</span>
+<span class="fc" id="L131">                .incomeChangePercent(null)  // No comparison for all-time data</span>
+<span class="fc" id="L132">                .expenseChangePercent(null)</span>
+<span class="fc" id="L133">                .savingsRate(savingsRate)</span>
+<span class="fc" id="L134">                .goalsProgressPercent(goalsProgressPercent)</span>
+<span class="fc" id="L135">                .build();</span>
+
+        // FR-14: Validate numeric values
+<span class="fc" id="L138">        response.validateNumericValues();</span>
+<span class="fc" id="L139">        return response;</span>
+    }
+
+    @Override
+    public SpendingTrendData getSpendingTrend(Long userId, String period) {
+<span class="fc" id="L144">        log.info(&quot;FR-14: Fetching spending trend for user {} with period {}&quot;, userId, period);</span>
+
+<span class="fc" id="L146">        LocalDate now = LocalDate.now();</span>
+        LocalDate startDate;
+<span class="fc" id="L148">        List&lt;SpendingTrendData.DataPoint&gt; dataPoints = new ArrayList&lt;&gt;();</span>
+
+<span class="fc bfc" id="L150" title="All 4 branches covered.">        switch (period.toUpperCase()) {</span>
+            case &quot;WEEK&quot;:
+<span class="fc" id="L152">                startDate = now.minusDays(6); // Last 7 days including today</span>
+<span class="fc" id="L153">                dataPoints = generateWeeklyTrend(userId, startDate, now);</span>
+<span class="fc" id="L154">                break;</span>
+            case &quot;MONTH&quot;:
+<span class="fc" id="L156">                startDate = now.withDayOfMonth(1);</span>
+<span class="fc" id="L157">                dataPoints = generateMonthlyTrend(userId, startDate, now);</span>
+<span class="fc" id="L158">                break;</span>
+            case &quot;YEAR&quot;:
+<span class="fc" id="L160">                startDate = now.withDayOfYear(1);</span>
+<span class="fc" id="L161">                dataPoints = generateYearlyTrend(userId, startDate, now);</span>
+<span class="fc" id="L162">                break;</span>
+            default:
+<span class="fc" id="L164">                startDate = now.minusDays(6);</span>
+<span class="fc" id="L165">                dataPoints = generateWeeklyTrend(userId, startDate, now);</span>
+        }
+
+<span class="fc" id="L168">        return SpendingTrendData.builder()</span>
+<span class="fc" id="L169">                .period(period.toUpperCase())</span>
+<span class="fc" id="L170">                .dataPoints(dataPoints)</span>
+<span class="fc" id="L171">                .build();</span>
+    }
+
+    // ===== Private Helper Methods =====
+
+    private List&lt;BudgetSummaryResponse&gt; getBudgetSummaries(Long userId) {
+<span class="fc" id="L177">        YearMonth currentMonth = YearMonth.now();</span>
+<span class="fc" id="L178">        List&lt;Category&gt; categories = categoryRepository.findByUser_UserIdOrderByNameAsc(userId);</span>
+
+<span class="fc" id="L180">        return categories.stream()</span>
+<span class="fc" id="L181">                .map(category -&gt; {</span>
+                    try {
+<span class="fc" id="L183">                        return budgetService.getUserCategoryBudgetSummary(userId, category.getCategoryId(), currentMonth);</span>
+<span class="nc" id="L184">                    } catch (Exception e) {</span>
+<span class="nc" id="L185">                        log.warn(&quot;Could not fetch budget for category {}&quot;, category.getName());</span>
+<span class="nc" id="L186">                        return null;</span>
+                    }
+                })
+<span class="fc" id="L189">                .filter(Objects::nonNull)</span>
+<span class="pc bpc" id="L190" title="2 of 4 branches missed.">                .filter(budget -&gt; budget.getBudget() != null &amp;&amp; budget.getBudget().compareTo(BigDecimal.ZERO) &gt; 0)</span>
+<span class="fc" id="L191">                .limit(5) // Top 5 budgets for dashboard</span>
+<span class="fc" id="L192">                .collect(Collectors.toList());</span>
+    }
+
+    private List&lt;SubscriptionSummaryResponse&gt; getActiveSubscriptions(Long userId) {
+<span class="fc" id="L196">        List&lt;Subscription&gt; subscriptions = subscriptionRepository.findByUser_UserIdAndIsActiveTrue(userId);</span>
+
+<span class="fc" id="L198">        return subscriptions.stream()</span>
+<span class="fc" id="L199">                .map(sub -&gt; {</span>
+<span class="fc" id="L200">                    BigDecimal monthlyEquiv = calculateMonthlyEquivalent(sub.getAmount(), sub.getFrequency());</span>
+<span class="fc" id="L201">                    return SubscriptionSummaryResponse.builder()</span>
+<span class="fc" id="L202">                            .subscriptionId(sub.getSubscriptionId())</span>
+<span class="fc" id="L203">                            .merchant(sub.getMerchant())</span>
+<span class="fc" id="L204">                            .amount(sub.getAmount())</span>
+<span class="fc" id="L205">                            .frequency(sub.getFrequency())</span>
+<span class="fc" id="L206">                            .nextPostAt(sub.getNextPostAt())</span>
+<span class="fc" id="L207">                            .isActive(sub.getIsActive())</span>
+<span class="fc" id="L208">                            .monthlyEquivalent(monthlyEquiv)</span>
+<span class="fc" id="L209">                            .build();</span>
+                })
+<span class="fc" id="L211">                .limit(5) // Top 5 subscriptions for dashboard</span>
+<span class="fc" id="L212">                .collect(Collectors.toList());</span>
+    }
+
+    private List&lt;TransactionResponse&gt; getRecentTransactions(Long userId, int limit) {
+<span class="fc" id="L216">        List&lt;CashFlow&gt; cashFlows = cashFlowRepository.findRecentByUserId(userId);</span>
+
+<span class="fc" id="L218">        return cashFlows.stream()</span>
+<span class="fc" id="L219">                .limit(limit)</span>
+<span class="fc" id="L220">                .map(cf -&gt; TransactionResponse.builder()</span>
+<span class="fc" id="L221">                        .cashFlowId(cf.getCashFlowId())</span>
+<span class="fc" id="L222">                        .type(cf.getType())</span>
+<span class="fc" id="L223">                        .amount(cf.getAmount())</span>
+<span class="fc" id="L224">                        .description(cf.getDescription())</span>
+<span class="fc" id="L225">                        .occurredAt(cf.getOccurredAt())</span>
+<span class="fc" id="L226">                        .createdAt(cf.getCreatedAt())</span>
+<span class="fc bfc" id="L227" title="All 2 branches covered.">                        .categoryName(cf.getCategory() != null ? cf.getCategory().getName() : &quot;Uncategorized&quot;)</span>
+<span class="fc" id="L228">                        .categoryIcon(getCategoryIcon(cf.getCategory()))</span>
+<span class="pc bpc" id="L229" title="1 of 2 branches missed.">                        .isSubscription(cf.getSubscription() != null)</span>
+<span class="pc bpc" id="L230" title="1 of 2 branches missed.">                        .subscriptionMerchant(cf.getSubscription() != null ? cf.getSubscription().getMerchant() : null)</span>
+<span class="fc" id="L231">                        .build())</span>
+<span class="fc" id="L232">                .collect(Collectors.toList());</span>
+    }
+
+    private List&lt;GoalResponse&gt; getActiveSavingsGoals(Long userId) {
+<span class="fc" id="L236">        List&lt;Goal&gt; goals = goalRepository.findAllByUser_UserIdOrderByIdDesc(userId);</span>
+
+<span class="fc" id="L238">        return goals.stream()</span>
+<span class="pc bpc" id="L239" title="3 of 4 branches missed.">                .filter(goal -&gt; goal.getStatus() == GoalStatus.IN_PROGRESS || goal.getStatus().name().equals(&quot;ACTIVE&quot;))</span>
+<span class="fc" id="L240">                .limit(4) // Top 4 goals for dashboard</span>
+<span class="fc" id="L241">                .map(goal -&gt; {</span>
+<span class="fc" id="L242">                    GoalResponse response = new GoalResponse();</span>
+<span class="fc" id="L243">                    response.setId(goal.getId());</span>
+<span class="fc" id="L244">                    response.setName(goal.getName());</span>
+<span class="fc" id="L245">                    response.setTargetAmount(goal.getTargetAmount());</span>
+<span class="fc" id="L246">                    response.setDueDate(goal.getDueDate());</span>
+<span class="fc" id="L247">                    response.setCurrentAmount(goal.getCurrentAmount());</span>
+
+                    // Calculate progress percentage
+<span class="fc" id="L250">                    double progress = 0.0;</span>
+<span class="pc bpc" id="L251" title="2 of 4 branches missed.">                    if (goal.getTargetAmount() != null &amp;&amp; goal.getTargetAmount().compareTo(BigDecimal.ZERO) &gt; 0) {</span>
+<span class="fc" id="L252">                        progress = goal.getCurrentAmount()</span>
+<span class="fc" id="L253">                                .divide(goal.getTargetAmount(), 4, java.math.RoundingMode.HALF_UP)</span>
+<span class="fc" id="L254">                                .multiply(BigDecimal.valueOf(100))</span>
+<span class="fc" id="L255">                                .doubleValue();</span>
+                    }
+<span class="fc" id="L257">                    response.setProgress(progress);</span>
+<span class="fc" id="L258">                    response.setStatus(goal.getStatus().name());</span>
+
+<span class="pc bpc" id="L260" title="1 of 2 branches missed.">                    response.setAccountId(goal.getAccount() != null ? goal.getAccount().getAccountId() : null);</span>
+<span class="fc" id="L261">                    response.setCategoryId(null); // Goal doesn't have a category field</span>
+
+<span class="fc" id="L263">                    return response;</span>
+                })
+<span class="fc" id="L265">                .collect(Collectors.toList());</span>
+    }
+
+    private List&lt;SpendingTrendData.DataPoint&gt; generateWeeklyTrend(Long userId, LocalDate start, LocalDate end) {
+<span class="fc" id="L269">        List&lt;SpendingTrendData.DataPoint&gt; dataPoints = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L270">        List&lt;CashFlow&gt; cashFlows = cashFlowRepository.findByUserIdAndDateRange(</span>
+                userId,
+<span class="fc" id="L272">                start.atStartOfDay(),</span>
+<span class="fc" id="L273">                end.atTime(LocalTime.MAX)</span>
+        );
+
+        // Group by date
+<span class="fc" id="L277">        Map&lt;LocalDate, BigDecimal&gt; dailyExpenses = cashFlows.stream()</span>
+<span class="fc bfc" id="L278" title="All 2 branches covered.">                .filter(cf -&gt; cf.getType() == CashFlowType.Expense)</span>
+<span class="fc" id="L279">                .collect(Collectors.groupingBy(</span>
+<span class="fc" id="L280">                        cf -&gt; cf.getOccurredAt().toLocalDate(),</span>
+<span class="fc" id="L281">                        Collectors.reducing(BigDecimal.ZERO, CashFlow::getAmount, BigDecimal::add)</span>
+                ));
+
+        // Generate data points for each day
+<span class="fc bfc" id="L285" title="All 2 branches covered.">        for (LocalDate date = start; !date.isAfter(end); date = date.plusDays(1)) {</span>
+<span class="fc" id="L286">            BigDecimal amount = dailyExpenses.getOrDefault(date, BigDecimal.ZERO);</span>
+<span class="fc" id="L287">            dataPoints.add(SpendingTrendData.DataPoint.builder()</span>
+<span class="fc" id="L288">                    .label(date.getDayOfWeek().getDisplayName(TextStyle.SHORT, Locale.ENGLISH))</span>
+<span class="fc" id="L289">                    .date(date)</span>
+<span class="fc" id="L290">                    .amount(amount)</span>
+<span class="fc" id="L291">                    .isToday(date.equals(LocalDate.now()))</span>
+<span class="fc" id="L292">                    .build());</span>
+        }
+
+<span class="fc" id="L295">        return dataPoints;</span>
+    }
+
+    private List&lt;SpendingTrendData.DataPoint&gt; generateMonthlyTrend(Long userId, LocalDate start, LocalDate end) {
+        // Similar to weekly but grouped by week or day-of-month
+<span class="fc" id="L300">        List&lt;SpendingTrendData.DataPoint&gt; dataPoints = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L301">        List&lt;CashFlow&gt; cashFlows = cashFlowRepository.findByUserIdAndDateRange(</span>
+                userId,
+<span class="fc" id="L303">                start.atStartOfDay(),</span>
+<span class="fc" id="L304">                end.atTime(LocalTime.MAX)</span>
+        );
+
+<span class="fc" id="L307">        Map&lt;LocalDate, BigDecimal&gt; dailyExpenses = cashFlows.stream()</span>
+<span class="pc bnc" id="L308" title="All 2 branches missed.">                .filter(cf -&gt; cf.getType() == CashFlowType.Expense)</span>
+<span class="fc" id="L309">                .collect(Collectors.groupingBy(</span>
+<span class="nc" id="L310">                        cf -&gt; cf.getOccurredAt().toLocalDate(),</span>
+<span class="fc" id="L311">                        Collectors.reducing(BigDecimal.ZERO, CashFlow::getAmount, BigDecimal::add)</span>
+                ));
+
+<span class="fc bfc" id="L314" title="All 2 branches covered.">        for (LocalDate date = start; !date.isAfter(end); date = date.plusDays(1)) {</span>
+<span class="fc" id="L315">            BigDecimal amount = dailyExpenses.getOrDefault(date, BigDecimal.ZERO);</span>
+<span class="fc" id="L316">            dataPoints.add(SpendingTrendData.DataPoint.builder()</span>
+<span class="fc" id="L317">                    .label(String.valueOf(date.getDayOfMonth()))</span>
+<span class="fc" id="L318">                    .date(date)</span>
+<span class="fc" id="L319">                    .amount(amount)</span>
+<span class="fc" id="L320">                    .isToday(date.equals(LocalDate.now()))</span>
+<span class="fc" id="L321">                    .build());</span>
+        }
+
+<span class="fc" id="L324">        return dataPoints;</span>
+    }
+
+    private List&lt;SpendingTrendData.DataPoint&gt; generateYearlyTrend(Long userId, LocalDate start, LocalDate end) {
+<span class="fc" id="L328">        List&lt;SpendingTrendData.DataPoint&gt; dataPoints = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L329">        List&lt;CashFlow&gt; cashFlows = cashFlowRepository.findByUserIdAndDateRange(</span>
+                userId,
+<span class="fc" id="L331">                start.atStartOfDay(),</span>
+<span class="fc" id="L332">                end.atTime(LocalTime.MAX)</span>
+        );
+
+        // Group by month
+<span class="fc" id="L336">        Map&lt;YearMonth, BigDecimal&gt; monthlyExpenses = cashFlows.stream()</span>
+<span class="pc bnc" id="L337" title="All 2 branches missed.">                .filter(cf -&gt; cf.getType() == CashFlowType.Expense)</span>
+<span class="fc" id="L338">                .collect(Collectors.groupingBy(</span>
+<span class="nc" id="L339">                        cf -&gt; YearMonth.from(cf.getOccurredAt()),</span>
+<span class="fc" id="L340">                        Collectors.reducing(BigDecimal.ZERO, CashFlow::getAmount, BigDecimal::add)</span>
+                ));
+
+<span class="fc" id="L343">        YearMonth currentMonth = YearMonth.from(end);</span>
+<span class="pc bpc" id="L344" title="1 of 2 branches missed.">        for (int i = 0; i &lt; 12; i++) {</span>
+<span class="fc" id="L345">            YearMonth month = YearMonth.from(start).plusMonths(i);</span>
+<span class="fc bfc" id="L346" title="All 2 branches covered.">            if (month.isAfter(currentMonth)) break;</span>
+
+<span class="fc" id="L348">            BigDecimal amount = monthlyExpenses.getOrDefault(month, BigDecimal.ZERO);</span>
+<span class="fc" id="L349">            dataPoints.add(SpendingTrendData.DataPoint.builder()</span>
+<span class="fc" id="L350">                    .label(month.getMonth().getDisplayName(TextStyle.SHORT, Locale.ENGLISH))</span>
+<span class="fc" id="L351">                    .date(month.atDay(1))</span>
+<span class="fc" id="L352">                    .amount(amount)</span>
+<span class="fc" id="L353">                    .isToday(month.equals(YearMonth.now()))</span>
+<span class="fc" id="L354">                    .build());</span>
+        }
+
+<span class="fc" id="L357">        return dataPoints;</span>
+    }
+
+    private Double calculatePercentageChange(BigDecimal oldValue, BigDecimal newValue) {
+<span class="nc bnc" id="L361" title="All 2 branches missed.">        if (oldValue.compareTo(BigDecimal.ZERO) == 0) {</span>
+<span class="nc bnc" id="L362" title="All 2 branches missed.">            return newValue.compareTo(BigDecimal.ZERO) &gt; 0 ? 100.0 : 0.0;</span>
+        }
+
+<span class="nc" id="L365">        return newValue.subtract(oldValue)</span>
+<span class="nc" id="L366">                .divide(oldValue, 4, RoundingMode.HALF_UP)</span>
+<span class="nc" id="L367">                .multiply(BigDecimal.valueOf(100))</span>
+<span class="nc" id="L368">                .doubleValue();</span>
+    }
+
+    private BigDecimal calculateMonthlyEquivalent(BigDecimal amount, String frequency) {
+<span class="pc bpc" id="L372" title="1 of 4 branches missed.">        return switch (frequency.toUpperCase()) {</span>
+<span class="fc" id="L373">            case &quot;WEEKLY&quot; -&gt; amount.multiply(BigDecimal.valueOf(4.33)); // Avg weeks per month</span>
+<span class="fc" id="L374">            case &quot;MONTHLY&quot; -&gt; amount;</span>
+<span class="fc" id="L375">            case &quot;YEARLY&quot; -&gt; amount.divide(BigDecimal.valueOf(12), 2, RoundingMode.HALF_UP);</span>
+<span class="nc" id="L376">            default -&gt; amount;</span>
+        };
+    }
+
+    private String getCategoryIcon(Category category) {
+<span class="fc bfc" id="L381" title="All 2 branches covered.">        if (category == null) return &quot;💰&quot;;</span>
+
+        // Map category names to icons
+<span class="pc bpc" id="L384" title="9 of 11 branches missed.">        return switch (category.getName().toLowerCase()) {</span>
+<span class="fc" id="L385">            case &quot;food&quot;, &quot;dining&quot; -&gt; &quot;🍔&quot;;</span>
+<span class="fc" id="L386">            case &quot;transport&quot;, &quot;transportation&quot; -&gt; &quot;🚗&quot;;</span>
+<span class="nc" id="L387">            case &quot;entertainment&quot; -&gt; &quot;🎮&quot;;</span>
+<span class="nc" id="L388">            case &quot;shopping&quot; -&gt; &quot;🛍️&quot;;</span>
+<span class="nc" id="L389">            case &quot;groceries&quot; -&gt; &quot;🛒&quot;;</span>
+<span class="nc" id="L390">            case &quot;education&quot; -&gt; &quot;📚&quot;;</span>
+<span class="nc" id="L391">            case &quot;health&quot;, &quot;healthcare&quot; -&gt; &quot;🏥&quot;;</span>
+<span class="nc" id="L392">            case &quot;utilities&quot; -&gt; &quot;💡&quot;;</span>
+<span class="nc" id="L393">            case &quot;housing&quot;, &quot;rent&quot; -&gt; &quot;🏠&quot;;</span>
+<span class="nc" id="L394">            case &quot;goal transfer&quot; -&gt; &quot;🎯&quot;;</span>
+<span class="nc" id="L395">            default -&gt; &quot;💰&quot;;</span>
+        };
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

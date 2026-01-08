@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SessionActivityFilter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">project</a> &gt; <a href="index.source.html" class="el_package">com.example.budgettracker.config</a> &gt; <span class="el_source">SessionActivityFilter.java</span></div><h1>SessionActivityFilter.java</h1><pre class="source lang-java linenums">package com.example.budgettracker.config;
+
+import com.example.budgettracker.service.SessionManagementService;
+import jakarta.servlet.*;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
+
+import java.io.IOException;
+
+/**
+ * FR-6: Session Activity Filter
+ * Automatically renews session on user activity and enforces 5-minute idle timeout
+ */
+@Component
+@Order(1)
+@RequiredArgsConstructor
+<span class="nc" id="L21">@Slf4j</span>
+public class SessionActivityFilter implements Filter {
+
+    private final SessionManagementService sessionManagementService;
+
+    @Override
+    public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
+            throws IOException, ServletException {
+
+<span class="nc" id="L30">        HttpServletRequest httpRequest = (HttpServletRequest) request;</span>
+<span class="nc" id="L31">        HttpServletResponse httpResponse = (HttpServletResponse) response;</span>
+
+        // Skip filter for auth endpoints and static resources
+<span class="nc" id="L34">        String requestPath = httpRequest.getRequestURI();</span>
+<span class="nc bnc" id="L35" title="All 2 branches missed.">        if (shouldSkipFilter(requestPath)) {</span>
+<span class="nc" id="L36">            chain.doFilter(request, response);</span>
+<span class="nc" id="L37">            return;</span>
+        }
+
+        // Extract session token from Authorization header
+<span class="nc" id="L41">        String authHeader = httpRequest.getHeader(&quot;Authorization&quot;);</span>
+<span class="nc" id="L42">        String sessionToken = extractSessionToken(authHeader);</span>
+
+        // If no token, continue without session validation for public endpoints
+<span class="nc bnc" id="L45" title="All 2 branches missed.">        if (sessionToken == null) {</span>
+<span class="nc" id="L46">            chain.doFilter(request, response);</span>
+<span class="nc" id="L47">            return;</span>
+        }
+
+        // Validate and renew session
+<span class="nc" id="L51">        boolean sessionValid = sessionManagementService.isSessionValid(sessionToken);</span>
+
+<span class="nc bnc" id="L53" title="All 2 branches missed.">        if (sessionValid) {</span>
+            // Renew session activity on valid requests
+<span class="nc" id="L55">            boolean renewed = sessionManagementService.renewSession(sessionToken);</span>
+<span class="nc bnc" id="L56" title="All 2 branches missed.">            if (!renewed) {</span>
+<span class="nc" id="L57">                log.warn(&quot;Failed to renew session for token: {}&quot;, maskToken(sessionToken));</span>
+<span class="nc" id="L58">                sendUnauthorizedResponse(httpResponse, &quot;Session renewal failed&quot;);</span>
+<span class="nc" id="L59">                return;</span>
+            }
+<span class="nc" id="L61">        } else {</span>
+            // Session invalid - send 401 for API endpoints
+<span class="nc bnc" id="L63" title="All 2 branches missed.">            if (requestPath.startsWith(&quot;/api/&quot;)) {</span>
+<span class="nc" id="L64">                sendUnauthorizedResponse(httpResponse, &quot;Session expired or invalid&quot;);</span>
+<span class="nc" id="L65">                return;</span>
+            }
+            // For web pages, let them proceed (they'll handle redirect to login)
+        }
+
+<span class="nc" id="L70">        chain.doFilter(request, response);</span>
+<span class="nc" id="L71">    }</span>
+
+    private boolean shouldSkipFilter(String requestPath) {
+<span class="nc bnc" id="L74" title="All 2 branches missed.">        return requestPath.startsWith(&quot;/api/auth/&quot;) ||</span>
+<span class="nc bnc" id="L75" title="All 2 branches missed.">               requestPath.startsWith(&quot;/static/&quot;) ||</span>
+<span class="nc bnc" id="L76" title="All 2 branches missed.">               requestPath.startsWith(&quot;/css/&quot;) ||</span>
+<span class="nc bnc" id="L77" title="All 2 branches missed.">               requestPath.startsWith(&quot;/js/&quot;) ||</span>
+<span class="nc bnc" id="L78" title="All 2 branches missed.">               requestPath.startsWith(&quot;/images/&quot;) ||</span>
+<span class="nc bnc" id="L79" title="All 2 branches missed.">               requestPath.endsWith(&quot;.html&quot;) ||</span>
+<span class="nc bnc" id="L80" title="All 2 branches missed.">               requestPath.endsWith(&quot;.css&quot;) ||</span>
+<span class="nc bnc" id="L81" title="All 2 branches missed.">               requestPath.endsWith(&quot;.js&quot;) ||</span>
+<span class="nc bnc" id="L82" title="All 2 branches missed.">               requestPath.endsWith(&quot;.png&quot;) ||</span>
+<span class="nc bnc" id="L83" title="All 2 branches missed.">               requestPath.endsWith(&quot;.jpg&quot;) ||</span>
+<span class="nc bnc" id="L84" title="All 2 branches missed.">               requestPath.endsWith(&quot;.ico&quot;) ||</span>
+<span class="nc bnc" id="L85" title="All 2 branches missed.">               requestPath.equals(&quot;/&quot;) ||</span>
+<span class="nc bnc" id="L86" title="All 2 branches missed.">               requestPath.equals(&quot;/login.html&quot;) ||</span>
+<span class="nc bnc" id="L87" title="All 2 branches missed.">               requestPath.equals(&quot;/signup.html&quot;);</span>
+    }
+
+    private String extractSessionToken(String authHeader) {
+<span class="nc bnc" id="L91" title="All 4 branches missed.">        if (authHeader != null &amp;&amp; authHeader.startsWith(&quot;Bearer &quot;)) {</span>
+<span class="nc" id="L92">            return authHeader.substring(7);</span>
+        }
+<span class="nc" id="L94">        return null;</span>
+    }
+
+    private void sendUnauthorizedResponse(HttpServletResponse response, String message) throws IOException {
+<span class="nc" id="L98">        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);</span>
+<span class="nc" id="L99">        response.setContentType(&quot;application/json&quot;);</span>
+<span class="nc" id="L100">        response.getWriter().write(String.format(&quot;{\&quot;error\&quot;: \&quot;%s\&quot;, \&quot;code\&quot;: \&quot;SESSION_EXPIRED\&quot;}&quot;, message));</span>
+<span class="nc" id="L101">    }</span>
+
+    private String maskToken(String token) {
+<span class="nc bnc" id="L104" title="All 4 branches missed.">        if (token == null || token.length() &lt; 8) {</span>
+<span class="nc" id="L105">            return &quot;***&quot;;</span>
+        }
+<span class="nc" id="L107">        return token.substring(0, 4) + &quot;***&quot; + token.substring(token.length() - 4);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

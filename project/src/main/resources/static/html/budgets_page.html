@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OVER-SAVE - Budgets</title>
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/budgets.css">
+</head>
+
+<body>
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="logo-section">
+            <div class="logo">
+                <span>💰</span><span>OVER-SAVE</span>
+            </div>
+        </div>
+        <nav class="nav-menu">
+            <a href="oversave-dashboard.html" class="nav-item">Dashboard</a>
+            <a href="transactions_page.html" class="nav-item">Transactions</a>
+            <a href="budgets_page.html" class="nav-item active">Budgets</a>
+            <a href="goals_page.html" class="nav-item">Goals</a>
+            <a href="subscriptions_page.html" class="nav-item">Subscriptions</a>
+            <a href="shopping_page.html" class="nav-item">Rewards Shop</a>
+            <a href="settings_page.html" class="nav-item">Settings</a>
+        </nav>
+    </aside>
+
+    <!-- Sidebar Toggle Button -->
+    <button class="sidebar-toggle" onclick="toggleSidebar()" title="Toggle Sidebar">
+        <span id="toggle-icon">☰</span>
+    </button>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <h1>Budget Management</h1>
+
+            </div>
+
+            <div class="header-actions">
+                <div class="budget-coin-balance" onclick="navigateToRewardsShop()" style="cursor: pointer;"
+                    title="Click to visit Rewards Shop">
+                    <span class="coin-icon">🪙</span>
+                    <span id="budget-coin-balance">0</span>
+                    <span>Budget Coins</span>
+                </div>
+
+                <div class="header-user-section">
+                    <div class="header-user-info">
+                        <div class="header-user-details">
+                            <div class="header-user-name">Loading...</div>
+                            <div class="header-user-email">Loading...</div>
+                        </div>
+                        <div class="header-user-avatar">??</div>
+                    </div>
+                    <button onclick="logout()" class="header-logout-btn" title="Logout">
+                        <span class="logout-icon">⏻</span>
+                        <span class="logout-text">Logout</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Budget Content -->
+        <div class="budget-content">
+            <!-- Budget Summary - Dynamic data from backend -->
+            <div class="budget-summary" id="budget-summary">
+                <div class="summary-card total">
+                    <div class="summary-icon">💰</div>
+                    <div class="summary-value" id="total-budget">$0</div>
+                    <div class="summary-label">Total Budget</div>
+                </div>
+                <div class="summary-card used">
+                    <div class="summary-icon">💸</div>
+                    <div class="summary-value" id="amount-spent">$0</div>
+                    <div class="summary-label">Amount Spent</div>
+                </div>
+                <div class="summary-card remaining">
+                    <div class="summary-icon">💵</div>
+                    <div class="summary-value" id="amount-remaining">$0</div>
+                    <div class="summary-label">Remaining</div>
+                </div>
+                <div class="summary-card categories">
+                    <div class="summary-icon">📂</div>
+                    <div class="summary-value" id="active-budgets">0</div>
+                    <div class="summary-label">Active Budgets</div>
+                </div>
+            </div>
+
+            <!-- Current Month Tab -->
+            <div class="tab-content active" id="current-tab">
+                <!-- Budget Alerts - will be populated dynamically -->
+                <div id="budget-alerts-container" style="margin-bottom: 1.5rem;">
+                    <!-- Alerts will be generated based on actual budget utilization -->
+                </div>
+
+                <!-- Budget Management -->
+                <div class="budget-main">
+                    <!-- Budget List -->
+                    <div class="budget-list-card">
+                        <div class="budget-list-header">
+                            <h3 class="chart-title">Budgets</h3>
+                        </div>
+
+                        <!-- Budget items will be loaded dynamically from backend -->
+                        <div id="budgets-container">
+                            <div class="loading-message" style="text-align: center; padding: 3rem; color: #6b7280;">
+                                📊 Loading your budgets...
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sidebar -->
+                    <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                        <!-- Quick Add Budget -->
+                        <div class="quick-add-card">
+                            <h3 style="margin-bottom: 1rem;">💰 Add Budget</h3>
+
+                            <form id="quick-add-budget-form">
+                                <div class="form-group">
+                                    <label class="form-label">Category *</label>
+                                    <select class="form-control" id="quick-budget-category" required>
+                                        <option value="">Select a category...</option>
+                                        <!-- Categories will be loaded dynamically from API -->
+                                    </select>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label">Budget Name</label>
+                                    <input type="text" class="form-control" id="quick-budget-name"
+                                        placeholder="Optional: Custom name" maxlength="50">
+                                    <small class="form-help">Leave blank to use category name</small>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label">Monthly Limit *</label>
+                                    <div class="amount-input-group">
+                                        <span class="currency-symbol">$</span>
+                                        <input type="number" class="form-control amount-input" id="quick-budget-amount"
+                                            placeholder="0.00" step="0.01" min="0.01" max="999999.99" required>
+                                    </div>
+                                </div>
+
+                                <button type="submit" class="btn btn-primary" style="width: 100%;">
+                                    💾 Set Budget
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Create/Edit Budget Modal -->
+            <div class="modal" id="budgetModal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3 class="modal-title">Create New Budget</h3>
+                        <button class="close-btn" onclick="closeBudgetModal()">&times;</button>
+                    </div>
+
+                    <form id="modal-budget-form">
+                        <!-- FR-11: User selects a category -->
+                        <div class="form-group">
+                            <label class="form-label">Category *</label>
+                            <select class="form-control" id="modal-category" required>
+                                <option value="">Select a category...</option>
+                                <!-- Categories will be loaded dynamically from API -->
+                            </select>
+                        </div>
+
+                        <!-- Custom Budget Name -->
+                        <div class="form-group">
+                            <label class="form-label">Budget Name</label>
+                            <input type="text" class="form-control" id="modal-budget-name"
+                                placeholder="e.g., Weekly Groceries, Daily Coffee, Emergency Fund..." maxlength="50">
+                            <small class="form-help">Optional: Give your budget a personalized name</small>
+
+                            <!-- Preset suggestions that appear when category is selected -->
+                            <div id="name-suggestions" style="display: none; margin-top: 0.5rem;">
+                                <label class="form-label"
+                                    style="font-size: 0.75rem; color: #6b7280; margin-bottom: 0.25rem;">
+                                    💡 Quick suggestions:
+                                </label>
+                                <div id="suggestion-buttons" style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                                    <!-- Suggestion buttons will be populated by JavaScript -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- FR-11: User enters a monthly limit -->
+                        <div class="form-group">
+                            <label class="form-label">Monthly Limit *</label>
+                            <div class="amount-input-group">
+                                <span class="currency-symbol">$</span>
+                                <input type="number" class="form-control amount-input" id="modal-amount"
+                                    placeholder="0.00" step="0.01" min="0.01" max="999999.99" required>
+                            </div>
+                            <small class="form-help">Budget must be a positive number</small>
+                        </div>
+
+                        <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                            <button type="button" class="btn btn-secondary" style="flex: 1;"
+                                onclick="closeBudgetModal()">
+                                Cancel
+                            </button>
+                            <button type="submit" class="btn btn-primary" style="flex: 1;">
+                                💾 Save Budget
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <script src="../js/sidebar.js"></script>
+            <script src="../js/coin-system.js"></script>
+            <script src="../js/income-service.js"></script>
+            <script src="../js/expense-service.js"></script>
+            <script src="../js/budget-service.js?v=9"></script>
+            <script src="../js/budgets.js?v=11"></script>
+            <script src="../js/auth.js"></script>
+            <script src="../js/footer.js"></script>
+            <script src="../js/session-manager.js"></script>
+            <script src="../js/user-display.js"></script>
+            <script src="../js/fab-actions.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BudgetServiceImpl.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">project</a> &gt; <a href="index.source.html" class="el_package">com.example.budgettracker.service</a> &gt; <span class="el_source">BudgetServiceImpl.java</span></div><h1>BudgetServiceImpl.java</h1><pre class="source lang-java linenums">package com.example.budgettracker.service;
+
+import com.example.budgettracker.dto.BudgetSummaryResponse;
+import com.example.budgettracker.model.Category;
+import com.example.budgettracker.model.CategoryBudget;
+import com.example.budgettracker.model.User;
+import com.example.budgettracker.repository.*;
+import jakarta.persistence.EntityNotFoundException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.YearMonth;
+
+@Service
+public class BudgetServiceImpl implements BudgetService {
+
+    private final CategoryRepository categoryRepository;
+    private final UserRepository userRepository;
+    private final CategoryBudgetRepository categoryBudgetRepository;
+    private final CashFlowRepository cashFlowRepository;
+
+<span class="fc" id="L26">    public BudgetServiceImpl(CategoryRepository categoryRepository, UserRepository userRepository, CategoryBudgetRepository categoryBudgetRepository, CashFlowRepository cashFlowRepository) {</span>
+<span class="fc" id="L27">        this.categoryRepository = categoryRepository;</span>
+<span class="fc" id="L28">        this.userRepository = userRepository;</span>
+<span class="fc" id="L29">        this.categoryBudgetRepository = categoryBudgetRepository;</span>
+<span class="fc" id="L30">        this.cashFlowRepository = cashFlowRepository;</span>
+<span class="fc" id="L31">    }</span>
+
+    @Override
+    @Transactional
+    public BudgetSummaryResponse setUserCategoryMonthlyBudget(Long userId, Long categoryId, YearMonth ym, BigDecimal budget) {
+<span class="fc" id="L36">        return setUserCategoryMonthlyBudget(userId, categoryId, ym, budget, null);</span>
+    }
+
+    @Override
+    @Transactional
+    public BudgetSummaryResponse setUserCategoryMonthlyBudget(Long userId, Long categoryId, YearMonth ym, BigDecimal budget, String customName) {
+<span class="fc bfc" id="L42" title="All 4 branches covered.">        if (budget == null || budget.signum() &lt;= 0) {</span>
+<span class="fc" id="L43">            throw new IllegalArgumentException(&quot;Budget must be &gt; 0&quot;);</span>
+        }
+<span class="fc bfc" id="L45" title="All 2 branches covered.">        YearMonth targetYm = (ym == null) ? YearMonth.now() : ym;</span>
+
+<span class="fc" id="L47">        User user = userRepository.findById(userId)</span>
+<span class="fc" id="L48">                .orElseThrow(() -&gt; new EntityNotFoundException(&quot;User not found: &quot; + userId));</span>
+
+<span class="fc" id="L50">        Category category = categoryRepository.findById(categoryId)</span>
+<span class="fc" id="L51">                .orElseThrow(() -&gt; new EntityNotFoundException(&quot;Category not found: &quot; + categoryId));</span>
+
+
+<span class="fc" id="L54">        CategoryBudget cb = categoryBudgetRepository</span>
+<span class="fc" id="L55">                .findByUser_UserIdAndCategory_CategoryIdAndYearMonth(userId, categoryId, targetYm.toString())</span>
+<span class="fc" id="L56">                .orElseGet(() -&gt; {</span>
+<span class="fc" id="L57">                    CategoryBudget x = new CategoryBudget();</span>
+<span class="fc" id="L58">                    x.setUser(user);</span>
+<span class="fc" id="L59">                    x.setCategory(category);</span>
+<span class="fc" id="L60">                    x.setYearMonth(targetYm.toString());</span>
+<span class="fc" id="L61">                    return x;</span>
+                });
+<span class="fc" id="L63">        cb.setAmount(budget);</span>
+<span class="fc" id="L64">        cb.setCustomName(customName);</span>
+<span class="fc" id="L65">        categoryBudgetRepository.save(cb);</span>
+
+<span class="fc" id="L67">        return buildSummary(userId, categoryId, targetYm, cb.getAmount(), cb.getCustomName());</span>
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public BudgetSummaryResponse getUserCategoryBudgetSummary(Long userId, Long categoryId, YearMonth ym) {
+<span class="pc bpc" id="L73" title="1 of 2 branches missed.">        YearMonth targetYm = (ym == null) ? YearMonth.now() : ym;</span>
+
+<span class="fc" id="L75">        categoryRepository.findById(categoryId)</span>
+<span class="fc" id="L76">                .orElseThrow(() -&gt; new EntityNotFoundException(&quot;Category not found: &quot; + categoryId));</span>
+
+<span class="fc" id="L78">        CategoryBudget categoryBudget = categoryBudgetRepository</span>
+<span class="fc" id="L79">                .findByUser_UserIdAndCategory_CategoryIdAndYearMonth(userId, categoryId, targetYm.toString())</span>
+<span class="fc" id="L80">                .orElse(null);</span>
+
+<span class="fc bfc" id="L82" title="All 2 branches covered.">        BigDecimal budget = categoryBudget != null ? categoryBudget.getAmount() : BigDecimal.ZERO;</span>
+<span class="fc bfc" id="L83" title="All 2 branches covered.">        String customName = categoryBudget != null ? categoryBudget.getCustomName() : null;</span>
+
+<span class="fc" id="L85">        return buildSummary(userId, categoryId, targetYm, budget, customName);</span>
+    }
+
+    @Override
+    @Transactional
+    public boolean deleteUserCategoryMonthlyBudget(Long userId, Long categoryId, YearMonth ym) {
+<span class="fc bfc" id="L91" title="All 2 branches covered.">        YearMonth targetYm = (ym == null) ? YearMonth.now() : ym;</span>
+
+        // Check if user and category exist
+<span class="fc" id="L94">        userRepository.findById(userId)</span>
+<span class="fc" id="L95">                .orElseThrow(() -&gt; new EntityNotFoundException(&quot;User not found: &quot; + userId));</span>
+
+<span class="fc" id="L97">        categoryRepository.findById(categoryId)</span>
+<span class="fc" id="L98">                .orElseThrow(() -&gt; new EntityNotFoundException(&quot;Category not found: &quot; + categoryId));</span>
+
+        // Find and delete the budget
+<span class="fc" id="L101">        return categoryBudgetRepository</span>
+<span class="fc" id="L102">                .findByUser_UserIdAndCategory_CategoryIdAndYearMonth(userId, categoryId, targetYm.toString())</span>
+<span class="fc" id="L103">                .map(categoryBudget -&gt; {</span>
+<span class="fc" id="L104">                    categoryBudgetRepository.delete(categoryBudget);</span>
+<span class="fc" id="L105">                    return true;</span>
+                })
+<span class="fc" id="L107">                .orElse(false); // Budget doesn't exist, nothing to delete</span>
+    }
+
+    private BudgetSummaryResponse buildSummary(Long userId, Long categoryId, YearMonth ym, BigDecimal budget) {
+<span class="nc" id="L111">        return buildSummary(userId, categoryId, ym, budget, null);</span>
+    }
+
+    private BudgetSummaryResponse buildSummary(Long userId, Long categoryId, YearMonth ym, BigDecimal budget, String customName) {
+<span class="fc" id="L115">        LocalDate start = ym.atDay(1);</span>
+<span class="fc" id="L116">        LocalDate end = ym.atEndOfMonth();</span>
+<span class="fc" id="L117">        LocalDateTime rangeStart = start.atStartOfDay();</span>
+<span class="fc" id="L118">        LocalDateTime rangeEnd = end.atTime(LocalTime.MAX);</span>
+<span class="fc" id="L119">        BigDecimal spent = cashFlowRepository</span>
+<span class="fc" id="L120">                .sumUserExpenseByCategoryAndPeriod(userId, categoryId, rangeStart, rangeEnd);</span>
+<span class="fc" id="L121">        return new BudgetSummaryResponse(categoryId, userId, ym.toString(), budget, spent, customName);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

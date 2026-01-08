@@ -1,0 +1,238 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AuthServiceImpl.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">project</a> &gt; <a href="index.source.html" class="el_package">com.example.budgettracker.service</a> &gt; <span class="el_source">AuthServiceImpl.java</span></div><h1>AuthServiceImpl.java</h1><pre class="source lang-java linenums">package com.example.budgettracker.service;
+
+import com.example.budgettracker.dto.*;
+import com.example.budgettracker.model.*;
+import com.example.budgettracker.repository.*;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.security.SecureRandom;
+import java.time.LocalDateTime;
+import java.util.Base64;
+import java.util.List;
+import java.util.Optional;
+
+@Service
+@RequiredArgsConstructor
+<span class="fc" id="L20">@Slf4j</span>
+public class AuthServiceImpl implements AuthService {
+
+    private final UserRepository userRepository;
+    private final SessionRepository sessionRepository;
+    private final IdpAccountRepository idpAccountRepository;
+    private final LoginAttemptRepository loginAttemptRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final SessionManagementService sessionManagementService;
+    private final AccountRepository accountRepository;
+    private final CategoryService categoryService;
+
+    private static final int MAX_LOGIN_ATTEMPTS = 5;
+    private static final int RATE_LIMIT_MINUTES = 15;
+    private static final int SESSION_HOURS = 24;
+
+    @Override
+    @Transactional
+    public AuthResponse login(LoginRequest loginRequest, String ipAddress) {
+        try {
+            // Check rate limiting
+<span class="fc bfc" id="L41" title="All 2 branches covered.">            if (isRateLimited(loginRequest.getEmail(), ipAddress)) {</span>
+<span class="fc" id="L42">                recordLoginAttempt(loginRequest.getEmail(), ipAddress, false);</span>
+<span class="fc" id="L43">                return AuthResponse.error(&quot;Too many login attempts. Please try again later.&quot;);</span>
+            }
+
+            // Find user by email
+<span class="fc" id="L47">            Optional&lt;User&gt; userOpt = userRepository.findByEmail(loginRequest.getEmail());</span>
+<span class="fc bfc" id="L48" title="All 2 branches covered.">            if (userOpt.isEmpty()) {</span>
+<span class="fc" id="L49">                recordLoginAttempt(loginRequest.getEmail(), ipAddress, false);</span>
+<span class="fc" id="L50">                return AuthResponse.error(&quot;Invalid credentials&quot;);</span>
+            }
+
+<span class="fc" id="L53">            User user = userOpt.get();</span>
+
+            // Verify password
+<span class="fc bfc" id="L56" title="All 2 branches covered.">            if (!passwordEncoder.matches(loginRequest.getPassword(), user.getHashedPassword())) {</span>
+<span class="fc" id="L57">                recordLoginAttempt(loginRequest.getEmail(), ipAddress, false);</span>
+<span class="fc" id="L58">                return AuthResponse.error(&quot;Invalid credentials&quot;);</span>
+            }
+
+            // Create secure session using SessionManagementService
+<span class="fc" id="L62">            Session session = sessionManagementService.createSession(user, ipAddress, &quot;&quot;);</span>
+<span class="fc" id="L63">            recordLoginAttempt(loginRequest.getEmail(), ipAddress, true);</span>
+
+<span class="fc" id="L65">            log.info(&quot;User {} logged in successfully&quot;, user.getEmail());</span>
+
+<span class="fc" id="L67">            return AuthResponse.success(</span>
+<span class="fc" id="L68">                    session.getSessionToken(),</span>
+<span class="fc" id="L69">                    user.getUserId(),</span>
+<span class="fc" id="L70">                    user.getEmail(),</span>
+<span class="fc" id="L71">                    user.getFirstName(),</span>
+<span class="fc" id="L72">                    user.getLastName(),</span>
+                    &quot;/html/oversave-dashboard.html&quot;
+            );
+
+<span class="fc" id="L76">        } catch (Exception e) {</span>
+<span class="fc" id="L77">            log.error(&quot;Login error for email {}: {}&quot;, loginRequest.getEmail(), e.getMessage());</span>
+<span class="fc" id="L78">            recordLoginAttempt(loginRequest.getEmail(), ipAddress, false);</span>
+<span class="fc" id="L79">            return AuthResponse.error(&quot;Login failed. Please try again.&quot;);</span>
+        }
+    }
+
+    @Override
+    @Transactional
+    public AuthResponse signup(SignupRequest signupRequest, String ipAddress) {
+        try {
+            // Check if user already exists
+<span class="fc bfc" id="L88" title="All 2 branches covered.">            if (userRepository.findByEmail(signupRequest.getEmail()).isPresent()) {</span>
+<span class="fc" id="L89">                return AuthResponse.error(&quot;Email address is already registered&quot;);</span>
+            }
+
+            // Create new user
+<span class="fc" id="L93">            User user = User.builder()</span>
+<span class="fc" id="L94">                    .email(signupRequest.getEmail())</span>
+<span class="fc" id="L95">                    .hashedPassword(passwordEncoder.encode(signupRequest.getPassword()))</span>
+<span class="fc" id="L96">                    .firstName(signupRequest.getFirstName())</span>
+<span class="fc" id="L97">                    .middleName(signupRequest.getMiddleName())</span>
+<span class="fc" id="L98">                    .lastName(signupRequest.getLastName())</span>
+<span class="fc" id="L99">                    .allowNotificationEmail(signupRequest.getAllowNotificationEmail())</span>
+<span class="fc" id="L100">                    .budgetCoin(0L)</span>
+<span class="fc" id="L101">                    .build();</span>
+
+<span class="fc" id="L103">            user = userRepository.save(user);</span>
+
+            // Create default CASH account for new user
+<span class="fc" id="L106">            Account cashAccount = Account.builder()</span>
+<span class="fc" id="L107">                    .user(user)</span>
+<span class="fc" id="L108">                    .name(&quot;Main Account&quot;)</span>
+<span class="fc" id="L109">                    .accountType(com.example.budgettracker.model.enums.AccountType.CASH)</span>
+<span class="fc" id="L110">                    .balance(java.math.BigDecimal.ZERO)</span>
+<span class="fc" id="L111">                    .build();</span>
+<span class="fc" id="L112">            accountRepository.save(cashAccount);</span>
+<span class="fc" id="L113">            log.info(&quot;Created default CASH account for user {}&quot;, user.getEmail());</span>
+
+<span class="fc" id="L115">            categoryService.ensureSystemCategoriesForUser(user.getUserId());</span>
+
+            // Create secure session using SessionManagementService
+<span class="fc" id="L118">            Session session = sessionManagementService.createSession(user, ipAddress, &quot;&quot;);</span>
+
+<span class="fc" id="L120">            log.info(&quot;New user {} registered successfully&quot;, user.getEmail());</span>
+
+<span class="fc" id="L122">            return AuthResponse.success(</span>
+<span class="fc" id="L123">                    session.getSessionToken(),</span>
+<span class="fc" id="L124">                    user.getUserId(),</span>
+<span class="fc" id="L125">                    user.getEmail(),</span>
+<span class="fc" id="L126">                    user.getFirstName(),</span>
+<span class="fc" id="L127">                    user.getLastName(),</span>
+                    &quot;/html/oversave-dashboard.html&quot;
+            );
+
+<span class="nc" id="L131">        } catch (Exception e) {</span>
+<span class="nc" id="L132">            log.error(&quot;Signup error for email {}: {}&quot;, signupRequest.getEmail(), e.getMessage());</span>
+<span class="nc" id="L133">            return AuthResponse.error(&quot;Registration failed. Please try again.&quot;);</span>
+        }
+    }
+
+    @Override
+    @Transactional
+    public AuthResponse loginWithIdp(IdpLoginRequest idpLoginRequest, String ipAddress) {
+        try {
+            // Check rate limiting (using provider+subjectId as identifier)
+<span class="fc" id="L142">            String idpIdentifier = idpLoginRequest.getProvider() + &quot;:&quot; + idpLoginRequest.getSubjectId();</span>
+<span class="pc bpc" id="L143" title="1 of 2 branches missed.">            if (isRateLimited(idpIdentifier, ipAddress)) {</span>
+<span class="nc" id="L144">                recordLoginAttempt(idpIdentifier, ipAddress, false);</span>
+<span class="nc" id="L145">                return AuthResponse.error(&quot;Too many login attempts. Please try again later.&quot;);</span>
+            }
+
+            // Find existing IdP account
+<span class="fc" id="L149">            Optional&lt;IdpAccount&gt; idpAccountOpt = idpAccountRepository.findByProviderAndSubjectId(</span>
+<span class="fc" id="L150">                    idpLoginRequest.getProvider(),</span>
+<span class="fc" id="L151">                    idpLoginRequest.getSubjectId()</span>
+            );
+
+            User user;
+<span class="fc bfc" id="L155" title="All 2 branches covered.">            if (idpAccountOpt.isPresent()) {</span>
+                // Existing IdP account
+<span class="fc" id="L157">                user = idpAccountOpt.get().getUser();</span>
+            } else {
+                // New IdP account - this would require additional user info from IdP
+<span class="fc" id="L160">                recordLoginAttempt(idpIdentifier, ipAddress, false);</span>
+<span class="fc" id="L161">                return AuthResponse.error(&quot;IdP account not linked. Please sign up first.&quot;);</span>
+            }
+
+            // Create secure session using SessionManagementService
+<span class="fc" id="L165">            Session session = sessionManagementService.createSession(user, ipAddress, &quot;&quot;);</span>
+<span class="fc" id="L166">            recordLoginAttempt(idpIdentifier, ipAddress, true);</span>
+
+<span class="fc" id="L168">            log.info(&quot;User {} logged in via IdP {} successfully&quot;, user.getEmail(), idpLoginRequest.getProvider());</span>
+
+<span class="fc" id="L170">            return AuthResponse.success(</span>
+<span class="fc" id="L171">                    session.getSessionToken(),</span>
+<span class="fc" id="L172">                    user.getUserId(),</span>
+<span class="fc" id="L173">                    user.getEmail(),</span>
+<span class="fc" id="L174">                    user.getFirstName(),</span>
+<span class="fc" id="L175">                    user.getLastName(),</span>
+                    &quot;/html/oversave-dashboard.html&quot;
+            );
+
+<span class="nc" id="L179">        } catch (Exception e) {</span>
+<span class="nc" id="L180">            log.error(&quot;IdP login error for provider {}: {}&quot;, idpLoginRequest.getProvider(), e.getMessage());</span>
+<span class="nc" id="L181">            String idpIdentifier = idpLoginRequest.getProvider() + &quot;:&quot; + idpLoginRequest.getSubjectId();</span>
+<span class="nc" id="L182">            recordLoginAttempt(idpIdentifier, ipAddress, false);</span>
+<span class="nc" id="L183">            return AuthResponse.error(&quot;IdP login failed. Please try again.&quot;);</span>
+        }
+    }
+
+    @Override
+    public boolean isRateLimited(String email, String ipAddress) {
+<span class="fc" id="L189">        LocalDateTime since = LocalDateTime.now().minusMinutes(RATE_LIMIT_MINUTES);</span>
+
+        // Check failed attempts by email
+<span class="fc" id="L192">        List&lt;LoginAttempt&gt; emailAttempts = loginAttemptRepository.findFailedAttemptsSince(email, since);</span>
+<span class="fc bfc" id="L193" title="All 2 branches covered.">        if (emailAttempts.size() &gt;= MAX_LOGIN_ATTEMPTS) {</span>
+<span class="fc" id="L194">            return true;</span>
+        }
+
+        // Check failed attempts by IP address
+<span class="fc" id="L198">        List&lt;LoginAttempt&gt; ipAttempts = loginAttemptRepository.findFailedAttemptsByIpSince(ipAddress, since);</span>
+<span class="fc bfc" id="L199" title="All 2 branches covered.">        return ipAttempts.size() &gt;= MAX_LOGIN_ATTEMPTS;</span>
+    }
+
+    @Override
+    @Transactional
+    public void recordLoginAttempt(String email, String ipAddress, boolean successful) {
+<span class="fc" id="L205">        LoginAttempt attempt = LoginAttempt.builder()</span>
+<span class="fc" id="L206">                .email(email)</span>
+<span class="fc" id="L207">                .ipAddress(ipAddress)</span>
+<span class="fc" id="L208">                .attemptTime(LocalDateTime.now())</span>
+<span class="fc" id="L209">                .successful(successful)</span>
+<span class="fc" id="L210">                .build();</span>
+
+<span class="fc" id="L212">        loginAttemptRepository.save(attempt);</span>
+<span class="fc" id="L213">    }</span>
+
+    @Override
+    @Transactional
+    public void logout(String sessionToken) {
+<span class="fc" id="L218">        sessionManagementService.invalidateSession(sessionToken);</span>
+<span class="fc" id="L219">    }</span>
+
+    @Override
+    public User getCurrentUser(String sessionToken) {
+<span class="fc" id="L223">        return sessionManagementService.getUserFromSession(sessionToken).orElse(null);</span>
+    }
+
+    @Override
+    public boolean isValidSession(String sessionToken) {
+<span class="fc" id="L228">        return sessionManagementService.isSessionValid(sessionToken);</span>
+    }
+
+    private String generateSessionToken() {
+<span class="nc" id="L232">        SecureRandom random = new SecureRandom();</span>
+<span class="nc" id="L233">        byte[] bytes = new byte[32];</span>
+<span class="nc" id="L234">        random.nextBytes(bytes);</span>
+<span class="nc" id="L235">        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

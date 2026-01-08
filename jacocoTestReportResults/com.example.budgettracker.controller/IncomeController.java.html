@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>IncomeController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">project</a> &gt; <a href="index.source.html" class="el_package">com.example.budgettracker.controller</a> &gt; <span class="el_source">IncomeController.java</span></div><h1>IncomeController.java</h1><pre class="source lang-java linenums">package com.example.budgettracker.controller;
+
+import com.example.budgettracker.dto.IncomeRequest;
+import com.example.budgettracker.dto.IncomeResponse;
+import com.example.budgettracker.model.Account;
+import com.example.budgettracker.model.User;
+import com.example.budgettracker.model.enums.AccountType;
+import com.example.budgettracker.repository.AccountRepository;
+import com.example.budgettracker.repository.UserRepository;
+import com.example.budgettracker.service.IncomeService;
+import jakarta.validation.Valid;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Map;
+
+@RestController
+@RequestMapping(&quot;/api/income&quot;)
+public class IncomeController extends BaseController {
+
+    private final IncomeService incomeService;
+    private final AccountRepository accountRepository;
+    private final UserRepository userRepository;
+
+    public IncomeController(IncomeService incomeService,
+                            AccountRepository accountRepository,
+<span class="nc" id="L29">                            UserRepository userRepository) {</span>
+<span class="nc" id="L30">        this.incomeService = incomeService;</span>
+<span class="nc" id="L31">        this.accountRepository = accountRepository;</span>
+<span class="nc" id="L32">        this.userRepository = userRepository;</span>
+<span class="nc" id="L33">    }</span>
+
+    @PostMapping
+    public ResponseEntity&lt;IncomeResponse&gt; addIncome(@RequestHeader(&quot;Authorization&quot;) String authHeader,
+                                                    @Valid @RequestBody IncomeRequest request) {
+<span class="nc" id="L38">        Long userId = getUserIdFromToken(authHeader);</span>
+<span class="nc" id="L39">        IncomeResponse response = incomeService.recordIncome(userId, request);</span>
+<span class="nc" id="L40">        return ResponseEntity.ok(response);</span>
+    }
+
+    @GetMapping
+    public ResponseEntity&lt;List&lt;IncomeResponse&gt;&gt; getAllIncome(@RequestHeader(&quot;Authorization&quot;) String authHeader) {
+<span class="nc" id="L45">        Long userId = getUserIdFromToken(authHeader);</span>
+<span class="nc" id="L46">        List&lt;IncomeResponse&gt; incomeList = incomeService.getAllIncome(userId);</span>
+<span class="nc" id="L47">        return ResponseEntity.ok(incomeList);</span>
+    }
+
+    /**
+     * Resolve the default account for the authenticated user.
+     * If the user has no accounts yet, provision a zero-balance cash account.
+     */
+    @GetMapping(&quot;/default-account&quot;)
+    public ResponseEntity&lt;Map&lt;String, Object&gt;&gt; getDefaultAccount(@RequestHeader(&quot;Authorization&quot;) String authHeader) {
+<span class="nc" id="L56">        Long userId = getUserIdFromToken(authHeader);</span>
+<span class="nc" id="L57">        List&lt;Account&gt; accounts = accountRepository.findByUser_UserId(userId);</span>
+
+        Account defaultAccount;
+<span class="nc bnc" id="L60" title="All 2 branches missed.">        if (accounts.isEmpty()) {</span>
+<span class="nc" id="L61">            User user = userRepository.findById(userId)</span>
+<span class="nc" id="L62">                    .orElseThrow(() -&gt; new IllegalStateException(&quot;User not found: &quot; + userId));</span>
+
+<span class="nc bnc" id="L64" title="All 2 branches missed.">            if (accountRepository.existsByUser_UserIdAndNameIgnoreCase(userId, &quot;Cash Account&quot;)) {</span>
+<span class="nc" id="L65">                defaultAccount = accountRepository.findFirstByUser_UserIdAndAccountType(userId, AccountType.CASH)</span>
+<span class="nc" id="L66">                        .orElseThrow(() -&gt; new IllegalStateException(&quot;Default account already exists but cannot be loaded.&quot;));</span>
+            } else {
+<span class="nc" id="L68">                defaultAccount = new Account();</span>
+<span class="nc" id="L69">                defaultAccount.setUser(user);</span>
+<span class="nc" id="L70">                defaultAccount.setName(&quot;Cash Account&quot;);</span>
+<span class="nc" id="L71">                defaultAccount.setAccountType(AccountType.CASH);</span>
+<span class="nc" id="L72">                defaultAccount.setBalance(BigDecimal.ZERO);</span>
+<span class="nc" id="L73">                defaultAccount = accountRepository.save(defaultAccount);</span>
+            }
+<span class="nc" id="L75">        } else {</span>
+<span class="nc" id="L76">            defaultAccount = accounts.get(0);</span>
+        }
+
+<span class="nc" id="L79">        return ResponseEntity.ok(Map.of(</span>
+<span class="nc" id="L80">                &quot;accountId&quot;, defaultAccount.getAccountId(),</span>
+<span class="nc" id="L81">                &quot;accountName&quot;, defaultAccount.getName(),</span>
+<span class="nc" id="L82">                &quot;balance&quot;, defaultAccount.getBalance()</span>
+        ));
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

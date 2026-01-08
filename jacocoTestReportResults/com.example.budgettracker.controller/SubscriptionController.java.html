@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SubscriptionController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">project</a> &gt; <a href="index.source.html" class="el_package">com.example.budgettracker.controller</a> &gt; <span class="el_source">SubscriptionController.java</span></div><h1>SubscriptionController.java</h1><pre class="source lang-java linenums">package com.example.budgettracker.controller;
+
+import com.example.budgettracker.dto.SubscriptionRequest;
+import com.example.budgettracker.dto.SubscriptionResponse;
+import com.example.budgettracker.service.SubscriptionService;
+import jakarta.validation.Valid;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping(&quot;/api/subscriptions&quot;)
+public class SubscriptionController extends BaseController {
+
+    private final SubscriptionService service;
+
+<span class="nc" id="L18">    public SubscriptionController(SubscriptionService service) {</span>
+<span class="nc" id="L19">        this.service = service;</span>
+<span class="nc" id="L20">    }</span>
+
+    @GetMapping
+    public List&lt;SubscriptionResponse&gt; list(@RequestHeader(&quot;Authorization&quot;) String authHeader,
+                                           @RequestParam(defaultValue = &quot;false&quot;) boolean activeOnly) {
+<span class="nc" id="L25">        Long userId = getUserIdFromToken(authHeader);</span>
+<span class="nc" id="L26">        return service.list(userId, activeOnly);</span>
+    }
+
+    @PostMapping
+    public ResponseEntity&lt;SubscriptionResponse&gt; create(@RequestHeader(&quot;Authorization&quot;) String authHeader,
+                                                       @Valid @RequestBody SubscriptionRequest req) {
+<span class="nc" id="L32">        Long userId = getUserIdFromToken(authHeader);</span>
+<span class="nc" id="L33">        return ResponseEntity.ok(service.create(userId, req));</span>
+    }
+
+    @PutMapping(&quot;/{id}&quot;)
+    public ResponseEntity&lt;SubscriptionResponse&gt; update(@RequestHeader(&quot;Authorization&quot;) String authHeader,
+                                                       @PathVariable Long id,
+                                                       @Valid @RequestBody SubscriptionRequest req) {
+<span class="nc" id="L40">        Long userId = getUserIdFromToken(authHeader);</span>
+<span class="nc" id="L41">        return ResponseEntity.ok(service.update(userId, id, req));</span>
+    }
+
+    @PatchMapping(&quot;/{id}/pause&quot;)
+    public ResponseEntity&lt;Void&gt; pause(@RequestHeader(&quot;Authorization&quot;) String authHeader,
+                                      @PathVariable Long id) {
+<span class="nc" id="L47">        Long userId = getUserIdFromToken(authHeader);</span>
+<span class="nc" id="L48">        service.pause(userId, id);</span>
+<span class="nc" id="L49">        return ResponseEntity.noContent().build();</span>
+    }
+
+    @PatchMapping(&quot;/{id}/resume&quot;)
+    public ResponseEntity&lt;Void&gt; resume(@RequestHeader(&quot;Authorization&quot;) String authHeader,
+                                       @PathVariable Long id) {
+<span class="nc" id="L55">        Long userId = getUserIdFromToken(authHeader);</span>
+<span class="nc" id="L56">        service.resume(userId, id);</span>
+<span class="nc" id="L57">        return ResponseEntity.noContent().build();</span>
+    }
+
+    @DeleteMapping(&quot;/{id}&quot;)
+    public ResponseEntity&lt;Void&gt; delete(@RequestHeader(&quot;Authorization&quot;) String authHeader,
+                                       @PathVariable Long id) {
+<span class="nc" id="L63">        Long userId = getUserIdFromToken(authHeader);</span>
+<span class="nc" id="L64">        service.delete(userId, id);</span>
+<span class="nc" id="L65">        return ResponseEntity.noContent().build();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

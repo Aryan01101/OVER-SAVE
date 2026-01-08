@@ -1,0 +1,327 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>EmailServiceImpl.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">project</a> &gt; <a href="index.source.html" class="el_package">com.example.budgettracker.service</a> &gt; <span class="el_source">EmailServiceImpl.java</span></div><h1>EmailServiceImpl.java</h1><pre class="source lang-java linenums">package com.example.budgettracker.service;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.stereotype.Service;
+
+import jakarta.mail.MessagingException;
+import jakarta.mail.internet.MimeMessage;
+
+@Service
+@RequiredArgsConstructor
+<span class="fc" id="L16">@Slf4j</span>
+public class EmailServiceImpl implements EmailService {
+
+    private final JavaMailSender mailSender;
+
+    @Value(&quot;${app.email.from:noreply@oversave.com}&quot;)
+    private String fromEmail;
+
+    @Value(&quot;${app.frontend.url:http://localhost:8080}&quot;)
+    private String frontendUrl;
+
+    @Override
+    public void sendPasswordResetEmail(String email, String firstName, String token) {
+        try {
+<span class="fc" id="L30">            String resetUrl = frontendUrl + &quot;/reset-password.html?token=&quot; + token;</span>
+
+<span class="fc" id="L32">            MimeMessage mimeMessage = mailSender.createMimeMessage();</span>
+<span class="fc" id="L33">            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, &quot;UTF-8&quot;);</span>
+
+<span class="fc" id="L35">            helper.setFrom(fromEmail);</span>
+<span class="fc" id="L36">            helper.setTo(email);</span>
+<span class="fc" id="L37">            helper.setSubject(&quot;Reset Your OVER-SAVE Password&quot;);</span>
+
+<span class="fc" id="L39">            String htmlContent = buildPasswordResetEmail(firstName, resetUrl);</span>
+<span class="fc" id="L40">            helper.setText(htmlContent, true);</span>
+
+<span class="fc" id="L42">            mailSender.send(mimeMessage);</span>
+<span class="fc" id="L43">            log.info(&quot;Password reset email sent to: {}&quot;, email);</span>
+
+<span class="nc" id="L45">        } catch (MessagingException e) {</span>
+<span class="nc" id="L46">            log.error(&quot;Failed to send password reset email to: {}&quot;, email, e);</span>
+<span class="nc" id="L47">            throw new RuntimeException(&quot;Failed to send email&quot;, e);</span>
+<span class="fc" id="L48">        }</span>
+<span class="fc" id="L49">    }</span>
+
+    @Override
+    public void sendPasswordChangedEmail(String email, String firstName) {
+        try {
+<span class="fc" id="L54">            MimeMessage mimeMessage = mailSender.createMimeMessage();</span>
+<span class="fc" id="L55">            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, &quot;UTF-8&quot;);</span>
+
+<span class="fc" id="L57">            helper.setFrom(fromEmail);</span>
+<span class="fc" id="L58">            helper.setTo(email);</span>
+<span class="fc" id="L59">            helper.setSubject(&quot;Your OVER-SAVE Password Has Been Changed&quot;);</span>
+
+<span class="fc" id="L61">            String htmlContent = buildPasswordChangedEmail(firstName);</span>
+<span class="fc" id="L62">            helper.setText(htmlContent, true);</span>
+
+<span class="fc" id="L64">            mailSender.send(mimeMessage);</span>
+<span class="fc" id="L65">            log.info(&quot;Password changed confirmation email sent to: {}&quot;, email);</span>
+
+<span class="nc" id="L67">        } catch (MessagingException e) {</span>
+<span class="nc" id="L68">            log.error(&quot;Failed to send password changed email to: {}&quot;, email, e);</span>
+<span class="nc" id="L69">            throw new RuntimeException(&quot;Failed to send email&quot;, e);</span>
+<span class="fc" id="L70">        }</span>
+<span class="fc" id="L71">    }</span>
+
+    @Override
+    public void sendOAuthRecoveryEmail(String email, String firstName, String provider) {
+        try {
+<span class="fc" id="L76">            MimeMessage mimeMessage = mailSender.createMimeMessage();</span>
+<span class="fc" id="L77">            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, &quot;UTF-8&quot;);</span>
+
+<span class="fc" id="L79">            helper.setFrom(fromEmail);</span>
+<span class="fc" id="L80">            helper.setTo(email);</span>
+<span class="fc" id="L81">            helper.setSubject(&quot;OVER-SAVE Account Recovery Instructions&quot;);</span>
+
+<span class="fc" id="L83">            String htmlContent = buildOAuthRecoveryEmail(firstName, provider);</span>
+<span class="fc" id="L84">            helper.setText(htmlContent, true);</span>
+
+<span class="fc" id="L86">            mailSender.send(mimeMessage);</span>
+<span class="fc" id="L87">            log.info(&quot;OAuth recovery email sent to: {}&quot;, email);</span>
+
+<span class="nc" id="L89">        } catch (MessagingException e) {</span>
+<span class="nc" id="L90">            log.error(&quot;Failed to send OAuth recovery email to: {}&quot;, email, e);</span>
+<span class="nc" id="L91">            throw new RuntimeException(&quot;Failed to send email&quot;, e);</span>
+<span class="fc" id="L92">        }</span>
+<span class="fc" id="L93">    }</span>
+
+    private String buildPasswordResetEmail(String firstName, String resetUrl) {
+<span class="fc" id="L96">        return &quot;&quot;&quot;</span>
+            &lt;!DOCTYPE html&gt;
+            &lt;html&gt;
+            &lt;head&gt;
+                &lt;meta charset=&quot;UTF-8&quot;&gt;
+                &lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1.0&quot;&gt;
+                &lt;title&gt;Reset Your Password&lt;/title&gt;
+            &lt;/head&gt;
+            &lt;body style=&quot;font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;&quot;&gt;
+                &lt;div style=&quot;background: linear-gradient(135deg, #667eea 0%%, #764ba2 100%%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;&quot;&gt;
+                    &lt;h1 style=&quot;color: white; margin: 0; font-size: 28px;&quot;&gt;💰 OVER-SAVE&lt;/h1&gt;
+                    &lt;p style=&quot;color: #f0f0f0; margin: 10px 0 0 0;&quot;&gt;Password Reset Request&lt;/p&gt;
+                &lt;/div&gt;
+
+                &lt;div style=&quot;background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e9ecef;&quot;&gt;
+                    &lt;h2 style=&quot;color: #495057; margin-top: 0;&quot;&gt;Hi %s! 👋&lt;/h2&gt;
+
+                    &lt;p&gt;We received a request to reset the password for your OVER-SAVE account.&lt;/p&gt;
+
+                    &lt;div style=&quot;background: #fff; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin: 20px 0;&quot;&gt;
+                        &lt;p style=&quot;margin: 0 0 15px 0; font-weight: bold;&quot;&gt;🔐 Click the button below to reset your password:&lt;/p&gt;
+                        &lt;a href=&quot;%s&quot; style=&quot;display: inline-block; background: #007bff; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;&quot;&gt;Reset My Password&lt;/a&gt;
+                    &lt;/div&gt;
+
+                    &lt;div style=&quot;background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 5px; padding: 15px; margin: 20px 0;&quot;&gt;
+                        &lt;p style=&quot;margin: 0; color: #856404;&quot;&gt;&lt;strong&gt;⚠️ Important Security Information:&lt;/strong&gt;&lt;/p&gt;
+                        &lt;ul style=&quot;margin: 10px 0 0 0; color: #856404;&quot;&gt;
+                            &lt;li&gt;This link expires in &lt;strong&gt;15 minutes&lt;/strong&gt; for your security&lt;/li&gt;
+                            &lt;li&gt;You can only use this link once&lt;/li&gt;
+                            &lt;li&gt;If you didn't request this reset, please ignore this email&lt;/li&gt;
+                        &lt;/ul&gt;
+                    &lt;/div&gt;
+
+                    &lt;p style=&quot;font-size: 14px; color: #6c757d; margin-top: 30px;&quot;&gt;
+                        If the button doesn't work, copy and paste this link into your browser:&lt;br&gt;
+                        &lt;a href=&quot;%s&quot; style=&quot;color: #007bff; word-break: break-all;&quot;&gt;%s&lt;/a&gt;
+                    &lt;/p&gt;
+
+                    &lt;hr style=&quot;border: none; border-top: 1px solid #dee2e6; margin: 30px 0;&quot;&gt;
+
+                    &lt;p style=&quot;font-size: 12px; color: #868e96; text-align: center;&quot;&gt;
+                        This email was sent by OVER-SAVE Budget Tracker&lt;br&gt;
+                        If you didn't request this password reset, no action is needed.
+                    &lt;/p&gt;
+                &lt;/div&gt;
+            &lt;/body&gt;
+            &lt;/html&gt;
+<span class="fc" id="L143">            &quot;&quot;&quot;.formatted(firstName, resetUrl, resetUrl, resetUrl);</span>
+    }
+
+    private String buildPasswordChangedEmail(String firstName) {
+<span class="fc" id="L147">        return &quot;&quot;&quot;</span>
+            &lt;!DOCTYPE html&gt;
+            &lt;html&gt;
+            &lt;head&gt;
+                &lt;meta charset=&quot;UTF-8&quot;&gt;
+                &lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1.0&quot;&gt;
+                &lt;title&gt;Password Changed Successfully&lt;/title&gt;
+            &lt;/head&gt;
+            &lt;body style=&quot;font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;&quot;&gt;
+                &lt;div style=&quot;background: linear-gradient(135deg, #28a745 0%%, #20c997 100%%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;&quot;&gt;
+                    &lt;h1 style=&quot;color: white; margin: 0; font-size: 28px;&quot;&gt;💰 OVER-SAVE&lt;/h1&gt;
+                    &lt;p style=&quot;color: #f0f0f0; margin: 10px 0 0 0;&quot;&gt;Password Changed Successfully&lt;/p&gt;
+                &lt;/div&gt;
+
+                &lt;div style=&quot;background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e9ecef;&quot;&gt;
+                    &lt;h2 style=&quot;color: #495057; margin-top: 0;&quot;&gt;Hi %s! 👋&lt;/h2&gt;
+
+                    &lt;div style=&quot;background: #d4edda; border: 1px solid #c3e6cb; border-radius: 5px; padding: 15px; margin: 20px 0;&quot;&gt;
+                        &lt;p style=&quot;margin: 0; color: #155724;&quot;&gt;&lt;strong&gt;✅ Your password has been successfully changed!&lt;/strong&gt;&lt;/p&gt;
+                    &lt;/div&gt;
+
+                    &lt;p&gt;Your OVER-SAVE account password was changed successfully. You can now log in with your new password.&lt;/p&gt;
+
+                    &lt;div style=&quot;background: #fff; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin: 20px 0;&quot;&gt;
+                        &lt;h4 style=&quot;margin: 0 0 10px 0; color: #495057;&quot;&gt;🔒 Security Details:&lt;/h4&gt;
+                        &lt;ul style=&quot;margin: 0; padding-left: 20px;&quot;&gt;
+                            &lt;li&gt;All existing sessions have been logged out for security&lt;/li&gt;
+                            &lt;li&gt;You'll need to log in again with your new password&lt;/li&gt;
+                            &lt;li&gt;All password reset tokens have been invalidated&lt;/li&gt;
+                        &lt;/ul&gt;
+                    &lt;/div&gt;
+
+                    &lt;div style=&quot;background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 5px; padding: 15px; margin: 20px 0;&quot;&gt;
+                        &lt;p style=&quot;margin: 0; color: #856404;&quot;&gt;&lt;strong&gt;⚠️ Didn't change your password?&lt;/strong&gt;&lt;/p&gt;
+                        &lt;p style=&quot;margin: 10px 0 0 0; color: #856404;&quot;&gt;If you didn't make this change, please contact our support team immediately.&lt;/p&gt;
+                    &lt;/div&gt;
+
+                    &lt;p style=&quot;text-align: center; margin: 30px 0;&quot;&gt;
+                        &lt;a href=&quot;%s&quot; style=&quot;display: inline-block; background: #007bff; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;&quot;&gt;Login to OVER-SAVE&lt;/a&gt;
+                    &lt;/p&gt;
+
+                    &lt;hr style=&quot;border: none; border-top: 1px solid #dee2e6; margin: 30px 0;&quot;&gt;
+
+                    &lt;p style=&quot;font-size: 12px; color: #868e96; text-align: center;&quot;&gt;
+                        This email was sent by OVER-SAVE Budget Tracker&lt;br&gt;
+                        This is an automated security notification.
+                    &lt;/p&gt;
+                &lt;/div&gt;
+            &lt;/body&gt;
+            &lt;/html&gt;
+<span class="fc" id="L197">            &quot;&quot;&quot;.formatted(firstName, frontendUrl + &quot;/login.html&quot;);</span>
+    }
+
+    private String buildOAuthRecoveryEmail(String firstName, String provider) {
+<span class="fc" id="L201">        return &quot;&quot;&quot;</span>
+            &lt;!DOCTYPE html&gt;
+            &lt;html&gt;
+            &lt;head&gt;
+                &lt;meta charset=&quot;UTF-8&quot;&gt;
+                &lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1.0&quot;&gt;
+                &lt;title&gt;Account Recovery Instructions&lt;/title&gt;
+            &lt;/head&gt;
+            &lt;body style=&quot;font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;&quot;&gt;
+                &lt;div style=&quot;background: linear-gradient(135deg, #ffc107 0%%, #ff8c00 100%%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;&quot;&gt;
+                    &lt;h1 style=&quot;color: white; margin: 0; font-size: 28px;&quot;&gt;💰 OVER-SAVE&lt;/h1&gt;
+                    &lt;p style=&quot;color: #f0f0f0; margin: 10px 0 0 0;&quot;&gt;Account Recovery&lt;/p&gt;
+                &lt;/div&gt;
+
+                &lt;div style=&quot;background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e9ecef;&quot;&gt;
+                    &lt;h2 style=&quot;color: #495057; margin-top: 0;&quot;&gt;Hi %s! 👋&lt;/h2&gt;
+
+                    &lt;p&gt;We received a password reset request for your OVER-SAVE account, but it looks like your account is linked to %s.&lt;/p&gt;
+
+                    &lt;div style=&quot;background: #cce5ff; border: 1px solid #99d6ff; border-radius: 5px; padding: 15px; margin: 20px 0;&quot;&gt;
+                        &lt;p style=&quot;margin: 0; color: #004085;&quot;&gt;&lt;strong&gt;🔗 Your account is connected via %s&lt;/strong&gt;&lt;/p&gt;
+                        &lt;p style=&quot;margin: 10px 0 0 0; color: #004085;&quot;&gt;You don't need to reset a password - just log in using %s!&lt;/p&gt;
+                    &lt;/div&gt;
+
+                    &lt;div style=&quot;background: #fff; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin: 20px 0;&quot;&gt;
+                        &lt;h4 style=&quot;margin: 0 0 15px 0; color: #495057;&quot;&gt;🔐 How to access your account:&lt;/h4&gt;
+                        &lt;ol style=&quot;margin: 0; padding-left: 20px;&quot;&gt;
+                            &lt;li&gt;Go to the OVER-SAVE login page&lt;/li&gt;
+                            &lt;li&gt;Click &quot;Continue with %s&quot;&lt;/li&gt;
+                            &lt;li&gt;Log in with your %s credentials&lt;/li&gt;
+                            &lt;li&gt;You'll be automatically signed in to OVER-SAVE&lt;/li&gt;
+                        &lt;/ol&gt;
+                    &lt;/div&gt;
+
+                    &lt;p style=&quot;text-align: center; margin: 30px 0;&quot;&gt;
+                        &lt;a href=&quot;%s&quot; style=&quot;display: inline-block; background: #007bff; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;&quot;&gt;Login to OVER-SAVE&lt;/a&gt;
+                    &lt;/p&gt;
+
+                    &lt;div style=&quot;background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 5px; padding: 15px; margin: 20px 0;&quot;&gt;
+                        &lt;p style=&quot;margin: 0; color: #856404;&quot;&gt;&lt;strong&gt;💡 Need help?&lt;/strong&gt;&lt;/p&gt;
+                        &lt;p style=&quot;margin: 10px 0 0 0; color: #856404;&quot;&gt;If you're having trouble accessing your %s account, please contact %s support first.&lt;/p&gt;
+                    &lt;/div&gt;
+
+                    &lt;hr style=&quot;border: none; border-top: 1px solid #dee2e6; margin: 30px 0;&quot;&gt;
+
+                    &lt;p style=&quot;font-size: 12px; color: #868e96; text-align: center;&quot;&gt;
+                        This email was sent by OVER-SAVE Budget Tracker&lt;br&gt;
+                        If you didn't request this, no action is needed.
+                    &lt;/p&gt;
+                &lt;/div&gt;
+            &lt;/body&gt;
+            &lt;/html&gt;
+<span class="fc" id="L253">            &quot;&quot;&quot;.formatted(firstName, provider, provider, provider, provider, provider, frontendUrl + &quot;/login.html&quot;, provider, provider);</span>
+    }
+
+    @Override
+    public void sendTestEmail(String email, String firstName) {
+        try {
+<span class="nc" id="L259">            MimeMessage mimeMessage = mailSender.createMimeMessage();</span>
+<span class="nc" id="L260">            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, &quot;UTF-8&quot;);</span>
+
+<span class="nc" id="L262">            helper.setFrom(fromEmail);</span>
+<span class="nc" id="L263">            helper.setTo(email);</span>
+<span class="nc" id="L264">            helper.setSubject(&quot;OVER-SAVE Test Email&quot;);</span>
+
+<span class="nc" id="L266">            String html = &quot;&quot;&quot;</span>
+            &lt;!DOCTYPE html&gt;
+            &lt;html&gt;
+            &lt;body style=&quot;font-family: Arial, sans-serif; line-height:1.6; color:#333; max-width:600px; margin:auto;&quot;&gt;
+                &lt;div style=&quot;background: linear-gradient(135deg, #667eea 0%%, #764ba2 100%%);
+                            padding: 25px; text-align: center; border-radius: 10px 10px 0 0;&quot;&gt;
+                    &lt;h1 style=&quot;color: white; margin: 0;&quot;&gt;💰 OVER-SAVE&lt;/h1&gt;
+                    &lt;p style=&quot;color: #e2e2e2; margin: 8px 0 0;&quot;&gt;Test Email Successful&lt;/p&gt;
+                &lt;/div&gt;
+                &lt;div style=&quot;background: #f9f9f9; padding: 30px; border: 1px solid #eee; border-radius: 0 0 10px 10px;&quot;&gt;
+                    &lt;h2&gt;Hi %s 👋&lt;/h2&gt;
+                    &lt;p&gt;This is a test email confirming that your OVER-SAVE email notifications are working correctly.&lt;/p&gt;
+                    &lt;p&gt;If you can read this message, your email setup is active and ready to receive monthly summaries!&lt;/p&gt;
+                    &lt;hr style=&quot;margin: 25px 0; border:none; border-top:1px solid #ddd;&quot;&gt;
+                    &lt;p style=&quot;font-size:12px; color:#777; text-align:center;&quot;&gt;OVER-SAVE Budget Tracker&lt;br&gt;noreply@oversave.com&lt;/p&gt;
+                &lt;/div&gt;
+            &lt;/body&gt;
+            &lt;/html&gt;
+<span class="nc" id="L284">        &quot;&quot;&quot;.formatted(firstName);</span>
+
+<span class="nc" id="L286">            helper.setText(html, true);</span>
+<span class="nc" id="L287">            mailSender.send(mimeMessage);</span>
+<span class="nc" id="L288">            log.info(&quot;✅ Test email sent to {}&quot;, email);</span>
+<span class="nc" id="L289">        } catch (Exception e) {</span>
+<span class="nc" id="L290">            log.error(&quot;❌ Failed to send test email to {}&quot;, email, e);</span>
+<span class="nc" id="L291">            throw new RuntimeException(&quot;Failed to send test email&quot;, e);</span>
+<span class="nc" id="L292">        }</span>
+<span class="nc" id="L293">    }</span>
+
+    @Override
+    public void sendMonthlySummaryEmail(String email, String firstName, String summaryHtml) {
+        try {
+<span class="nc" id="L298">            MimeMessage mimeMessage = mailSender.createMimeMessage();</span>
+<span class="nc" id="L299">            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, &quot;UTF-8&quot;);</span>
+
+<span class="nc" id="L301">            helper.setFrom(fromEmail);</span>
+<span class="nc" id="L302">            helper.setTo(email);</span>
+<span class="nc" id="L303">            helper.setSubject(&quot;Your Monthly OVER-SAVE Summary&quot;);</span>
+
+            // if no external summaryHtml provided, fallback to simple message
+<span class="nc bnc" id="L306" title="All 2 branches missed.">            String html = summaryHtml != null ? summaryHtml : &quot;&quot;&quot;</span>
+            &lt;html&gt;
+              &lt;body style=&quot;font-family: Arial, sans-serif; padding:20px;&quot;&gt;
+                &lt;h2&gt;Hi %s 👋&lt;/h2&gt;
+                &lt;p&gt;Here’s your monthly OVER-SAVE summary!&lt;/p&gt;
+                &lt;p&gt;We’ll soon include budget, goals, and savings details here.&lt;/p&gt;
+                &lt;hr&gt;&lt;p style=&quot;font-size:12px;color:#777;&quot;&gt;OVER-SAVE Budget Tracker&lt;/p&gt;
+              &lt;/body&gt;
+            &lt;/html&gt;
+<span class="nc" id="L315">        &quot;&quot;&quot;.formatted(firstName);</span>
+
+<span class="nc" id="L317">            helper.setText(html, true);</span>
+<span class="nc" id="L318">            mailSender.send(mimeMessage);</span>
+<span class="nc" id="L319">            log.info(&quot;✅ Monthly summary email sent to {}&quot;, email);</span>
+<span class="nc" id="L320">        } catch (Exception e) {</span>
+<span class="nc" id="L321">            log.error(&quot;❌ Failed to send monthly summary to {}&quot;, email, e);</span>
+<span class="nc" id="L322">            throw new RuntimeException(&quot;Failed to send monthly summary email&quot;, e);</span>
+<span class="nc" id="L323">        }</span>
+<span class="nc" id="L324">    }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

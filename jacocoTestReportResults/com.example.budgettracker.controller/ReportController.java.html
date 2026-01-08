@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ReportController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">project</a> &gt; <a href="index.source.html" class="el_package">com.example.budgettracker.controller</a> &gt; <span class="el_source">ReportController.java</span></div><h1>ReportController.java</h1><pre class="source lang-java linenums">package com.example.budgettracker.controller;
+
+
+
+import com.example.budgettracker.service.ReportService;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.*;
+import org.springframework.web.bind.annotation.*;
+import org.jfree.chart.*;
+import org.jfree.chart.plot.PiePlot;
+import org.jfree.data.general.DefaultPieDataset;
+
+import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDateTime;
+import java.util.Map;
+
+import javax.imageio.ImageIO;
+
+@RestController
+@RequestMapping(&quot;/api/reports&quot;)
+public class ReportController {
+
+    private final ReportService reportService;
+
+<span class="nc" id="L29">    public ReportController(ReportService reportService) {</span>
+<span class="nc" id="L30">        this.reportService = reportService;</span>
+<span class="nc" id="L31">    }</span>
+
+    @GetMapping(&quot;/data&quot;)
+    public Map&lt;String, Object&gt; getReportData(
+            @RequestParam Long userId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDateTime startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDateTime endDate) {
+
+<span class="nc" id="L39">        Map&lt;String, Object&gt; totals = reportService.generateReport(userId, startDate, endDate);</span>
+
+<span class="nc" id="L41">        return Map.of(</span>
+                &quot;userId&quot;, userId,
+                &quot;startDate&quot;, startDate,
+                &quot;endDate&quot;, endDate,
+                &quot;totals&quot;, totals
+        );
+    }
+
+    @GetMapping(value = &quot;/chart&quot;, produces = MediaType.IMAGE_PNG_VALUE)
+    public ResponseEntity&lt;byte[]&gt; getReportChart(
+            @RequestParam Long userId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDateTime startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDateTime endDate) throws Exception {
+
+<span class="nc" id="L55">        Map&lt;String, Object&gt; report = reportService.generateReport(userId, startDate, endDate);</span>
+<span class="nc" id="L56">        Map&lt;String, BigDecimal&gt; expenseByCategory = (Map&lt;String, BigDecimal&gt;) report.get(&quot;expenseByCategory&quot;);</span>
+
+<span class="nc" id="L58">        BigDecimal totalIncome = (BigDecimal) report.get(&quot;totalIncome&quot;);</span>
+<span class="nc" id="L59">        BigDecimal totalExpense = (BigDecimal) report.get(&quot;totalExpense&quot;);</span>
+<span class="nc" id="L60">        BigDecimal balance = (BigDecimal) report.get(&quot;balance&quot;);</span>
+
+
+<span class="nc" id="L63">        DefaultPieDataset&lt;String&gt; dataset = new DefaultPieDataset&lt;&gt;();</span>
+<span class="nc" id="L64">        expenseByCategory.forEach((category, amount) -&gt; {</span>
+<span class="nc bnc" id="L65" title="All 4 branches missed.">            if (amount != null &amp;&amp; amount.compareTo(BigDecimal.ZERO) &gt; 0) {</span>
+<span class="nc" id="L66">                dataset.setValue(category, amount);</span>
+            }
+<span class="nc" id="L68">        });</span>
+
+
+<span class="nc" id="L71">        JFreeChart chart = ChartFactory.createPieChart(</span>
+                &quot;Expense Breakdown&quot;,
+                dataset,
+                false, false, false
+        );
+
+<span class="nc" id="L77">        PiePlot plot = (PiePlot) chart.getPlot();</span>
+<span class="nc" id="L78">        plot.setLabelFont(new Font(&quot;SansSerif&quot;, Font.PLAIN, 12));</span>
+<span class="nc" id="L79">        plot.setCircular(true);</span>
+<span class="nc" id="L80">        plot.setLabelGap(0.02);</span>
+<span class="nc" id="L81">        plot.setBackgroundPaint(Color.WHITE);</span>
+<span class="nc" id="L82">        chart.setBackgroundPaint(Color.WHITE);</span>
+
+
+<span class="nc" id="L85">        int width = 800;</span>
+<span class="nc" id="L86">        int height = 500;</span>
+<span class="nc" id="L87">        BufferedImage combinedImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);</span>
+<span class="nc" id="L88">        Graphics2D g2 = combinedImage.createGraphics();</span>
+
+
+<span class="nc" id="L91">        g2.setPaint(Color.WHITE);</span>
+<span class="nc" id="L92">        g2.fillRect(0, 0, width, height);</span>
+
+
+<span class="nc" id="L95">        g2.setPaint(Color.BLACK);</span>
+<span class="nc" id="L96">        g2.setFont(new Font(&quot;SansSerif&quot;, Font.BOLD, 20));</span>
+<span class="nc" id="L97">        g2.drawString(&quot;Budget Report&quot;, 20, 30);</span>
+<span class="nc" id="L98">        g2.setFont(new Font(&quot;SansSerif&quot;, Font.PLAIN, 16));</span>
+<span class="nc" id="L99">        g2.drawString(&quot;Period: &quot; + startDate + &quot; to &quot; + endDate, 20, 55);</span>
+
+
+<span class="nc" id="L102">        BufferedImage chartImage = chart.createBufferedImage(400, 400);</span>
+<span class="nc" id="L103">        g2.drawImage(chartImage, 20, 80, null);</span>
+
+
+<span class="nc" id="L106">        g2.setPaint(Color.BLACK);</span>
+<span class="nc" id="L107">        g2.setFont(new Font(&quot;SansSerif&quot;, Font.BOLD, 16));</span>
+<span class="nc" id="L108">        int x = 440;</span>
+<span class="nc" id="L109">        int y = 100;</span>
+<span class="nc" id="L110">        g2.drawString(&quot;Total Income: $&quot; + totalIncome.setScale(2, RoundingMode.HALF_UP), x, y);</span>
+<span class="nc" id="L111">        g2.drawString(&quot;Total Expense: $&quot; + totalExpense.setScale(2, RoundingMode.HALF_UP), x, y + 30);</span>
+<span class="nc" id="L112">        g2.drawString(&quot;Balance: $&quot; + balance.setScale(2, RoundingMode.HALF_UP), x, y + 60);</span>
+
+<span class="nc" id="L114">        g2.setFont(new Font(&quot;SansSerif&quot;, Font.PLAIN, 14));</span>
+<span class="nc" id="L115">        y += 100;</span>
+<span class="nc" id="L116">        g2.drawString(&quot;Expense Details:&quot;, x, y);</span>
+<span class="nc bnc" id="L117" title="All 2 branches missed.">        for (Map.Entry&lt;String, BigDecimal&gt; entry : expenseByCategory.entrySet()) {</span>
+<span class="nc" id="L118">            y += 25;</span>
+<span class="nc" id="L119">            g2.drawString(&quot;- &quot; + entry.getKey() + &quot;: $&quot; + entry.getValue().setScale(2, RoundingMode.HALF_UP), x, y);</span>
+<span class="nc" id="L120">        }</span>
+
+<span class="nc" id="L122">        g2.dispose();</span>
+
+
+<span class="nc" id="L125">        ByteArrayOutputStream baos = new ByteArrayOutputStream();</span>
+<span class="nc" id="L126">        ImageIO.write(combinedImage, &quot;png&quot;, baos);</span>
+
+<span class="nc" id="L128">        return ResponseEntity.ok()</span>
+<span class="nc" id="L129">                .contentType(MediaType.IMAGE_PNG)</span>
+<span class="nc" id="L130">                .body(baos.toByteArray());</span>
+    }
+
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

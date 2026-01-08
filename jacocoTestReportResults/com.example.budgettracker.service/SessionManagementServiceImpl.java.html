@@ -1,0 +1,284 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SessionManagementServiceImpl.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">project</a> &gt; <a href="index.source.html" class="el_package">com.example.budgettracker.service</a> &gt; <span class="el_source">SessionManagementServiceImpl.java</span></div><h1>SessionManagementServiceImpl.java</h1><pre class="source lang-java linenums">package com.example.budgettracker.service;
+
+import com.example.budgettracker.model.Session;
+import com.example.budgettracker.model.User;
+import com.example.budgettracker.repository.SessionRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
+import java.time.LocalDateTime;
+import java.util.Base64;
+import java.util.List;
+import java.util.Optional;
+
+/**
+ * FR-6: Session Management Implementation
+ * Secure session management with 5-minute idle timeout and tampering detection
+ */
+@Service
+@RequiredArgsConstructor
+<span class="fc" id="L27">@Slf4j</span>
+public class SessionManagementServiceImpl implements SessionManagementService {
+
+    private final SessionRepository sessionRepository;
+
+    @Value(&quot;${app.session.secret:defaultSecretChangeInProduction}&quot;)
+    private String sessionSecret;
+
+    private static final int SESSION_DURATION_HOURS = 24;
+    private static final int IDLE_TIMEOUT_MINUTES = 5;
+    private static final String HMAC_ALGORITHM = &quot;HmacSHA256&quot;;
+
+    @Override
+    @Transactional
+    public Session createSession(User user, String ipAddress, String userAgent) {
+        try {
+<span class="fc" id="L43">            LocalDateTime now = LocalDateTime.now();</span>
+
+            // Invalidate existing sessions for this user
+<span class="fc" id="L46">            sessionRepository.findActiveSessionsByUserId(user.getUserId())</span>
+<span class="fc" id="L47">                    .forEach(existingSession -&gt; {</span>
+<span class="fc" id="L48">                        existingSession.setIsActive(false);</span>
+<span class="fc" id="L49">                        sessionRepository.save(existingSession);</span>
+<span class="fc" id="L50">                    });</span>
+
+            // Generate secure token
+<span class="fc" id="L53">            String token = generateSecureToken(user, now);</span>
+<span class="fc" id="L54">            String signature = generateTokenSignature(token);</span>
+
+<span class="fc" id="L56">            Session session = Session.builder()</span>
+<span class="fc" id="L57">                    .user(user)</span>
+<span class="fc" id="L58">                    .sessionToken(token)</span>
+<span class="fc" id="L59">                    .tokenSignature(signature)</span>
+<span class="fc" id="L60">                    .issuedAt(now)</span>
+<span class="fc" id="L61">                    .expiresAt(now.plusHours(SESSION_DURATION_HOURS))</span>
+<span class="fc" id="L62">                    .lastActivityAt(now)</span>
+<span class="fc" id="L63">                    .ipAddress(ipAddress)</span>
+<span class="fc" id="L64">                    .userAgent(userAgent)</span>
+<span class="fc" id="L65">                    .isActive(true)</span>
+<span class="fc" id="L66">                    .build();</span>
+
+<span class="fc" id="L68">            session = sessionRepository.save(session);</span>
+<span class="fc" id="L69">            log.info(&quot;Created new session for user {} from IP {}&quot;, user.getEmail(), ipAddress);</span>
+
+<span class="fc" id="L71">            return session;</span>
+
+<span class="fc" id="L73">        } catch (Exception e) {</span>
+<span class="fc" id="L74">            log.error(&quot;Failed to create session for user {}: {}&quot;, user.getEmail(), e.getMessage());</span>
+<span class="fc" id="L75">            throw new RuntimeException(&quot;Session creation failed&quot;, e);</span>
+        }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional&lt;Session&gt; validateSession(String token) {
+<span class="fc bfc" id="L82" title="All 4 branches covered.">        if (token == null || token.trim().isEmpty()) {</span>
+<span class="fc" id="L83">            return Optional.empty();</span>
+        }
+
+<span class="fc" id="L86">        Optional&lt;Session&gt; sessionOpt = sessionRepository.findBySessionToken(token);</span>
+
+<span class="fc bfc" id="L88" title="All 2 branches covered.">        if (sessionOpt.isEmpty()) {</span>
+<span class="fc" id="L89">            log.warn(&quot;Session not found for token: {}&quot;, maskToken(token));</span>
+<span class="fc" id="L90">            return Optional.empty();</span>
+        }
+
+<span class="fc" id="L93">        Session session = sessionOpt.get();</span>
+
+        // Check if session is active
+<span class="fc bfc" id="L96" title="All 2 branches covered.">        if (!session.getIsActive()) {</span>
+<span class="fc" id="L97">            log.warn(&quot;Session is inactive: {}&quot;, maskToken(token));</span>
+<span class="fc" id="L98">            return Optional.empty();</span>
+        }
+
+        // Check if session is expired
+<span class="fc bfc" id="L102" title="All 2 branches covered.">        if (session.isExpired()) {</span>
+<span class="fc" id="L103">            log.warn(&quot;Session expired: {}&quot;, maskToken(token));</span>
+<span class="fc" id="L104">            invalidateSession(token);</span>
+<span class="fc" id="L105">            return Optional.empty();</span>
+        }
+
+        // Check if session is idle (5 minutes)
+<span class="fc bfc" id="L109" title="All 2 branches covered.">        if (session.isIdle()) {</span>
+<span class="fc" id="L110">            log.warn(&quot;Session idle timeout: {}&quot;, maskToken(token));</span>
+<span class="fc" id="L111">            invalidateSession(token);</span>
+<span class="fc" id="L112">            return Optional.empty();</span>
+        }
+
+        // Verify token signature for tampering detection
+<span class="fc bfc" id="L116" title="All 2 branches covered.">        if (!verifyTokenSignature(token, session.getTokenSignature())) {</span>
+<span class="fc" id="L117">            log.error(&quot;Token tampering detected for session: {}&quot;, maskToken(token));</span>
+<span class="fc" id="L118">            invalidateSession(token);</span>
+<span class="fc" id="L119">            return Optional.empty();</span>
+        }
+
+<span class="fc" id="L122">        return Optional.of(session);</span>
+    }
+
+    @Override
+    @Transactional
+    public boolean renewSession(String token) {
+        try {
+<span class="fc" id="L129">            Optional&lt;Session&gt; sessionOpt = validateSession(token);</span>
+
+<span class="fc bfc" id="L131" title="All 2 branches covered.">            if (sessionOpt.isEmpty()) {</span>
+<span class="fc" id="L132">                return false;</span>
+            }
+
+<span class="fc" id="L135">            Session session = sessionOpt.get();</span>
+<span class="fc" id="L136">            session.updateActivity();</span>
+
+            // Extend expiration if close to expiry (within 1 hour)
+<span class="fc" id="L139">            LocalDateTime now = LocalDateTime.now();</span>
+<span class="fc bfc" id="L140" title="All 2 branches covered.">            if (session.getExpiresAt().isBefore(now.plusHours(1))) {</span>
+<span class="fc" id="L141">                session.setExpiresAt(now.plusHours(SESSION_DURATION_HOURS));</span>
+<span class="fc" id="L142">                log.debug(&quot;Extended session expiration for user {}&quot;, session.getUser().getEmail());</span>
+            }
+
+<span class="fc" id="L145">            sessionRepository.save(session);</span>
+<span class="fc" id="L146">            log.debug(&quot;Renewed session activity for user {}&quot;, session.getUser().getEmail());</span>
+
+<span class="fc" id="L148">            return true;</span>
+
+<span class="fc" id="L150">        } catch (Exception e) {</span>
+<span class="fc" id="L151">            log.error(&quot;Failed to renew session {}: {}&quot;, maskToken(token), e.getMessage());</span>
+<span class="fc" id="L152">            return false;</span>
+        }
+    }
+
+    @Override
+    @Transactional
+    public void invalidateSession(String token) {
+        try {
+<span class="fc" id="L160">            sessionRepository.findBySessionToken(token)</span>
+<span class="fc" id="L161">                    .ifPresent(session -&gt; {</span>
+<span class="fc" id="L162">                        session.setIsActive(false);</span>
+<span class="fc" id="L163">                        sessionRepository.save(session);</span>
+<span class="fc" id="L164">                        log.info(&quot;Invalidated session for user {}&quot;, session.getUser().getEmail());</span>
+<span class="fc" id="L165">                    });</span>
+<span class="fc" id="L166">        } catch (Exception e) {</span>
+<span class="fc" id="L167">            log.error(&quot;Failed to invalidate session {}: {}&quot;, maskToken(token), e.getMessage());</span>
+<span class="fc" id="L168">        }</span>
+<span class="fc" id="L169">    }</span>
+
+    @Override
+    @Transactional
+    public void invalidateAllSessionsForUser(User user) {
+        try {
+<span class="nc" id="L175">            sessionRepository.findActiveSessionsByUserId(user.getUserId())</span>
+<span class="nc" id="L176">                    .forEach(session -&gt; {</span>
+<span class="nc" id="L177">                        session.setIsActive(false);</span>
+<span class="nc" id="L178">                        sessionRepository.save(session);</span>
+<span class="nc" id="L179">                    });</span>
+<span class="nc" id="L180">            log.info(&quot;Invalidated all sessions for user {}&quot;, user.getEmail());</span>
+<span class="nc" id="L181">        } catch (Exception e) {</span>
+<span class="nc" id="L182">            log.error(&quot;Failed to invalidate sessions for user {}: {}&quot;, user.getEmail(), e.getMessage());</span>
+<span class="nc" id="L183">        }</span>
+<span class="nc" id="L184">    }</span>
+
+    @Override
+    @Transactional
+    public void cleanupExpiredSessions() {
+        try {
+<span class="fc" id="L190">            LocalDateTime now = LocalDateTime.now();</span>
+<span class="fc" id="L191">            LocalDateTime idleCutoff = now.minusMinutes(IDLE_TIMEOUT_MINUTES);</span>
+
+<span class="fc" id="L193">            List&lt;Session&gt; expiredSessions = sessionRepository.findExpiredSessions(now, idleCutoff);</span>
+
+<span class="fc bfc" id="L195" title="All 2 branches covered.">            for (Session session : expiredSessions) {</span>
+<span class="fc" id="L196">                session.setIsActive(false);</span>
+<span class="fc" id="L197">                sessionRepository.save(session);</span>
+<span class="fc" id="L198">            }</span>
+
+<span class="fc bfc" id="L200" title="All 2 branches covered.">            if (!expiredSessions.isEmpty()) {</span>
+<span class="fc" id="L201">                log.info(&quot;Cleaned up {} expired sessions&quot;, expiredSessions.size());</span>
+            }
+
+<span class="nc" id="L204">        } catch (Exception e) {</span>
+<span class="nc" id="L205">            log.error(&quot;Failed to cleanup expired sessions: {}&quot;, e.getMessage());</span>
+<span class="fc" id="L206">        }</span>
+<span class="fc" id="L207">    }</span>
+
+    @Override
+    public boolean isSessionValid(String token) {
+<span class="fc" id="L211">        return validateSession(token).isPresent();</span>
+    }
+
+    @Override
+    public Optional&lt;User&gt; getUserFromSession(String token) {
+<span class="fc" id="L216">        Optional&lt;Session&gt; sessionOpt = validateSession(token);</span>
+
+<span class="fc bfc" id="L218" title="All 2 branches covered.">        if (sessionOpt.isPresent()) {</span>
+            // Auto-renew session to prevent idle timeout on every authenticated request
+<span class="fc" id="L220">            renewSession(token);</span>
+<span class="fc" id="L221">            return Optional.of(sessionOpt.get().getUser());</span>
+        }
+
+<span class="fc" id="L224">        return Optional.empty();</span>
+    }
+
+    @Override
+    public String generateSecureToken(User user, LocalDateTime issuedAt) {
+        try {
+<span class="fc" id="L230">            SecureRandom random = new SecureRandom();</span>
+<span class="fc" id="L231">            byte[] tokenBytes = new byte[32];</span>
+<span class="fc" id="L232">            random.nextBytes(tokenBytes);</span>
+
+<span class="fc" id="L234">            String baseToken = Base64.getUrlEncoder().withoutPadding().encodeToString(tokenBytes);</span>
+
+            // Add user and timestamp info for additional entropy
+<span class="fc" id="L237">            String tokenData = String.format(&quot;%s:%s:%s&quot;,</span>
+                    baseToken,
+<span class="fc" id="L239">                    user.getUserId(),</span>
+<span class="fc" id="L240">                    issuedAt.toString());</span>
+
+<span class="fc" id="L242">            return Base64.getUrlEncoder().withoutPadding()</span>
+<span class="fc" id="L243">                    .encodeToString(tokenData.getBytes(StandardCharsets.UTF_8));</span>
+
+<span class="nc" id="L245">        } catch (Exception e) {</span>
+<span class="nc" id="L246">            log.error(&quot;Failed to generate secure token: {}&quot;, e.getMessage());</span>
+<span class="nc" id="L247">            throw new RuntimeException(&quot;Token generation failed&quot;, e);</span>
+        }
+    }
+
+    @Override
+    public boolean verifyTokenSignature(String token, String signature) {
+        try {
+<span class="fc" id="L254">            String expectedSignature = generateTokenSignature(token);</span>
+<span class="fc" id="L255">            return expectedSignature.equals(signature);</span>
+<span class="nc" id="L256">        } catch (Exception e) {</span>
+<span class="nc" id="L257">            log.error(&quot;Failed to verify token signature: {}&quot;, e.getMessage());</span>
+<span class="nc" id="L258">            return false;</span>
+        }
+    }
+
+    private String generateTokenSignature(String token) {
+        try {
+<span class="fc" id="L264">            Mac mac = Mac.getInstance(HMAC_ALGORITHM);</span>
+<span class="fc" id="L265">            SecretKeySpec keySpec = new SecretKeySpec(sessionSecret.getBytes(StandardCharsets.UTF_8), HMAC_ALGORITHM);</span>
+<span class="fc" id="L266">            mac.init(keySpec);</span>
+
+<span class="fc" id="L268">            byte[] signature = mac.doFinal(token.getBytes(StandardCharsets.UTF_8));</span>
+<span class="fc" id="L269">            return Base64.getEncoder().encodeToString(signature);</span>
+
+<span class="nc" id="L271">        } catch (Exception e) {</span>
+<span class="nc" id="L272">            log.error(&quot;Failed to generate token signature: {}&quot;, e.getMessage());</span>
+<span class="nc" id="L273">            throw new RuntimeException(&quot;Signature generation failed&quot;, e);</span>
+        }
+    }
+
+    private String maskToken(String token) {
+<span class="pc bpc" id="L278" title="2 of 4 branches missed.">        if (token == null || token.length() &lt; 8) {</span>
+<span class="nc" id="L279">            return &quot;***&quot;;</span>
+        }
+<span class="fc" id="L281">        return token.substring(0, 4) + &quot;***&quot; + token.substring(token.length() - 4);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

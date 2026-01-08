@@ -1,0 +1,403 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GoalServiceImpl.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">project</a> &gt; <a href="index.source.html" class="el_package">com.example.budgettracker.service</a> &gt; <span class="el_source">GoalServiceImpl.java</span></div><h1>GoalServiceImpl.java</h1><pre class="source lang-java linenums">package com.example.budgettracker.service;
+
+import com.example.budgettracker.dto.Goal.*;
+import com.example.budgettracker.model.*;
+import com.example.budgettracker.model.enums.AccountType;
+import com.example.budgettracker.model.enums.CashFlowType;
+import com.example.budgettracker.model.enums.GoalStatus;
+import com.example.budgettracker.repository.*;
+import jakarta.transaction.Transactional;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.stereotype.Service;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+@Transactional
+public class GoalServiceImpl implements GoalService {
+
+    private final UserRepository userRepo;
+    private final AccountRepository accountRepo;
+    private final GoalRepository goalRepo;
+    private final CashFlowRepository cashFlowRepo;
+    private final CategoryRepository categoryRepo;
+    private final TransferRepository transferRepo;
+
+
+    public GoalServiceImpl(UserRepository userRepo,
+                           AccountRepository accountRepo,
+                           GoalRepository goalRepo,
+                           CashFlowRepository cashFlowRepo,
+                           CategoryRepository categoryRepo,
+<span class="fc" id="L38">                           TransferRepository transferRepo) {</span>
+<span class="fc" id="L39">        this.userRepo = userRepo;</span>
+<span class="fc" id="L40">        this.accountRepo = accountRepo;</span>
+<span class="fc" id="L41">        this.goalRepo = goalRepo;</span>
+<span class="fc" id="L42">        this.cashFlowRepo = cashFlowRepo;</span>
+<span class="fc" id="L43">        this.categoryRepo = categoryRepo;</span>
+<span class="fc" id="L44">        this.transferRepo = transferRepo;</span>
+<span class="fc" id="L45">    }</span>
+
+    @Override
+    public GoalResponse create(Long userId, CreateGoalRequest request) {
+<span class="nc" id="L49">        GoalRequest goalRequest = new GoalRequest();</span>
+<span class="nc" id="L50">        goalRequest.setName(request.getName());</span>
+<span class="nc" id="L51">        goalRequest.setTargetAmount(request.getTargetAmount());</span>
+<span class="nc" id="L52">        goalRequest.setDueDate(request.getDueDate());</span>
+<span class="nc" id="L53">        return createGoal(userId, goalRequest);</span>
+    }
+
+    @Override
+    public GoalResponse createGoal(Long userId, GoalRequest request) {
+<span class="fc" id="L58">        User user = userRepo.findById(userId)</span>
+<span class="fc" id="L59">                .orElseThrow(() -&gt; new IllegalArgumentException(&quot;User not found: &quot; + userId));</span>
+
+<span class="fc" id="L61">        boolean goalExists = goalRepo.existsByUser_UserIdAndNameIgnoreCase(userId, request.getName());</span>
+<span class="fc bfc" id="L62" title="All 2 branches covered.">        if (goalExists) {</span>
+<span class="fc" id="L63">            throw new IllegalArgumentException(&quot;Goal with name '&quot; + request.getName() + &quot;' already exists&quot;);</span>
+        }
+
+<span class="fc" id="L66">        boolean accountExistsForUser = accountRepo.existsByUser_UserIdAndNameIgnoreCase(userId, request.getName());</span>
+<span class="pc bpc" id="L67" title="1 of 2 branches missed.">        if (accountExistsForUser) {</span>
+<span class="nc" id="L68">            throw new IllegalArgumentException(&quot;Account with name '&quot; + request.getName() + &quot;' already exists&quot;);</span>
+        }
+
+
+<span class="fc" id="L72">        Account goalAccount = new Account();</span>
+<span class="fc" id="L73">        goalAccount.setUser(user);</span>
+<span class="fc" id="L74">        goalAccount.setAccountType(AccountType.GOAL);</span>
+<span class="fc" id="L75">        goalAccount.setName(request.getName());</span>
+<span class="fc" id="L76">        goalAccount.setBalance(BigDecimal.ZERO);</span>
+        try {
+<span class="fc" id="L78">            accountRepo.save(goalAccount);</span>
+<span class="nc" id="L79">        } catch (DataIntegrityViolationException e) {</span>
+<span class="nc" id="L80">            throw new IllegalArgumentException(&quot;Account name '&quot; + request.getName() + &quot;' is already in use for this user&quot;, e);</span>
+<span class="fc" id="L81">        }</span>
+
+
+<span class="fc" id="L84">        Goal goal = new Goal();</span>
+<span class="fc" id="L85">        goal.setUser(user);</span>
+<span class="fc" id="L86">        goal.setName(request.getName());</span>
+<span class="fc" id="L87">        goal.setTargetAmount(request.getTargetAmount());</span>
+<span class="fc" id="L88">        goal.setDueDate(request.getDueDate());</span>
+<span class="fc" id="L89">        goal.setLinkedAccount(goalAccount);</span>
+<span class="fc" id="L90">        goal.setCurrentAmount(BigDecimal.ZERO);</span>
+<span class="fc" id="L91">        goal.setStatus(GoalStatus.IN_PROGRESS);</span>
+<span class="fc" id="L92">        goalRepo.save(goal);</span>
+
+<span class="fc" id="L94">        return toResponse(goal);</span>
+    }
+
+    @Override
+    public List&lt;GoalResponse&gt; list(Long userId) {
+<span class="nc" id="L99">        return getAllGoals(userId);</span>
+    }
+
+    @Override
+    public List&lt;GoalResponse&gt; getAllGoals(Long userId) {
+<span class="fc" id="L104">        User user = userRepo.findById(userId)</span>
+<span class="fc" id="L105">                .orElseThrow(() -&gt; new IllegalArgumentException(&quot;User not found: &quot; + userId));</span>
+
+<span class="fc" id="L107">        return goalRepo.findByUser(user).stream()</span>
+<span class="fc" id="L108">                .map(this::toResponse)</span>
+<span class="fc" id="L109">                .collect(Collectors.toList());</span>
+    }
+
+    @Override
+    public GoalResponse contribute(Long userId, Long goalId, ContributionRequest req) {
+        // Set the goalId in the request if not already set
+<span class="nc bnc" id="L115" title="All 2 branches missed.">        if (req.getGoalId() == null) {</span>
+<span class="nc" id="L116">            req.setGoalId(goalId);</span>
+        }
+<span class="nc" id="L118">        contributeToGoal(userId, req);</span>
+<span class="nc" id="L119">        return getGoalById(userId, goalId);</span>
+    }
+
+    @Override
+    public ContributionResponse contributeToGoal(Long userId, ContributionRequest req) {
+<span class="fc" id="L124">        User user = userRepo.findById(userId)</span>
+<span class="pc" id="L125">                .orElseThrow(() -&gt; new IllegalArgumentException(&quot;User not found: &quot; + userId));</span>
+
+<span class="fc" id="L127">        Account fromAccount = accountRepo.findById(req.getFromAccountId())</span>
+<span class="pc" id="L128">                .orElseThrow(() -&gt; new IllegalArgumentException(&quot;Cash account not found&quot;));</span>
+<span class="fc bfc" id="L129" title="All 2 branches covered.">        if (!fromAccount.getUser().getUserId().equals(userId)) {</span>
+<span class="fc" id="L130">            throw new IllegalArgumentException(&quot;Source account not owned by this user&quot;);</span>
+        }
+
+<span class="fc" id="L133">        Goal goal = goalRepo.findById(req.getGoalId())</span>
+<span class="fc" id="L134">                .orElseThrow(() -&gt; new IllegalArgumentException(&quot;Goal not found&quot;));</span>
+<span class="fc" id="L135">        Account goalAccount = goal.getLinkedAccount();</span>
+
+<span class="fc" id="L137">        BigDecimal amount = req.getAmount();</span>
+<span class="fc bfc" id="L138" title="All 4 branches covered.">        if (amount == null || amount.compareTo(BigDecimal.ZERO) &lt;= 0) {</span>
+<span class="fc" id="L139">            throw new IllegalArgumentException(&quot;Contribution amount must be positive&quot;);</span>
+        }
+
+<span class="fc bfc" id="L142" title="All 2 branches covered.">        if (fromAccount.getBalance().compareTo(amount) &lt; 0) {</span>
+<span class="fc" id="L143">            throw new IllegalArgumentException(&quot;Insufficient funds in cash account&quot;);</span>
+        }
+
+
+<span class="fc" id="L147">        Category transferCategory = ensureGoalTransferCategory(user);</span>
+
+
+<span class="fc" id="L150">        LocalDateTime now = LocalDateTime.now();</span>
+
+<span class="pc bpc" id="L152" title="1 of 2 branches missed.">        String goalName = goal.getName() != null ? goal.getName() : &quot;Goal&quot;;</span>
+<span class="fc" id="L153">        String outflowDescription = &quot;Goal contribution to &quot; + goalName;</span>
+<span class="fc" id="L154">        String inflowDescription = &quot;Goal contribution from &quot; + fromAccount.getName();</span>
+
+        // From Account - Expense
+<span class="fc" id="L157">        CashFlow outflow = new CashFlow();</span>
+<span class="fc" id="L158">        outflow.setAccount(fromAccount);</span>
+<span class="fc" id="L159">        outflow.setCategory(transferCategory);</span>
+<span class="fc" id="L160">        outflow.setType(CashFlowType.Expense);</span>
+<span class="fc" id="L161">        outflow.setAmount(amount);</span>
+<span class="fc" id="L162">        outflow.setOccurredAt(now);</span>
+<span class="fc" id="L163">        outflow.setDescription(outflowDescription);</span>
+<span class="fc" id="L164">        cashFlowRepo.save(outflow);</span>
+
+        // To Goal Account - Income
+<span class="fc" id="L167">        CashFlow inflow = new CashFlow();</span>
+<span class="fc" id="L168">        inflow.setAccount(goalAccount);</span>
+<span class="fc" id="L169">        inflow.setCategory(transferCategory);</span>
+<span class="fc" id="L170">        inflow.setType(CashFlowType.Income);</span>
+<span class="fc" id="L171">        inflow.setAmount(amount);</span>
+<span class="fc" id="L172">        inflow.setOccurredAt(now);</span>
+<span class="fc" id="L173">        inflow.setDescription(inflowDescription);</span>
+<span class="fc" id="L174">        cashFlowRepo.save(inflow);</span>
+
+<span class="fc" id="L176">        Transfer transfer = new Transfer();</span>
+<span class="fc" id="L177">        transfer.setAccountFrom(fromAccount);</span>
+<span class="fc" id="L178">        transfer.setAccountTo(goalAccount);</span>
+<span class="fc" id="L179">        transfer.setAmount(amount);</span>
+<span class="fc" id="L180">        transfer.setCreatedAt(LocalDateTime.now());</span>
+<span class="fc" id="L181">        transferRepo.save(transfer);</span>
+
+
+<span class="fc" id="L184">        fromAccount.setBalance(fromAccount.getBalance().subtract(amount));</span>
+<span class="fc" id="L185">        accountRepo.save(fromAccount);</span>
+
+<span class="fc" id="L187">        goalAccount.setBalance(goalAccount.getBalance().add(amount));</span>
+<span class="fc" id="L188">        accountRepo.save(goalAccount);</span>
+
+
+<span class="fc" id="L191">        goal.setCurrentAmount(goal.getCurrentAmount().add(amount));</span>
+<span class="pc bpc" id="L192" title="1 of 2 branches missed.">        if (goal.getCurrentAmount().compareTo(goal.getTargetAmount()) &gt;= 0) {</span>
+<span class="fc" id="L193">            goal.setStatus(GoalStatus.COMPLETED);</span>
+        }
+<span class="fc" id="L195">        goalRepo.save(goal);</span>
+
+<span class="fc" id="L197">        ContributionResponse response = new ContributionResponse();</span>
+<span class="fc" id="L198">        response.setMessage(&quot;Contribution successful&quot;);</span>
+<span class="fc" id="L199">        response.setNewCashBalance(fromAccount.getBalance());</span>
+<span class="fc" id="L200">        response.setNewGoalBalance(goalAccount.getBalance());</span>
+<span class="fc" id="L201">        return response;</span>
+    }
+
+    private Category ensureGoalTransferCategory(User user) {
+<span class="fc" id="L205">        final String preferredName = &quot;Goal Transfer&quot;;</span>
+<span class="fc" id="L206">        final String legacyName = &quot;__Goal_Transfer__&quot;;</span>
+<span class="fc" id="L207">        Long userId = user.getUserId();</span>
+
+<span class="fc" id="L209">        return categoryRepo.findByUser_UserIdAndNameIgnoreCase(userId, preferredName)</span>
+<span class="fc" id="L210">                .orElseGet(() -&gt; {</span>
+<span class="fc" id="L211">                    Category category = categoryRepo.findByUser_UserIdAndNameIgnoreCase(userId, legacyName)</span>
+<span class="fc" id="L212">                            .map(existing -&gt; {</span>
+<span class="nc bnc" id="L213" title="All 2 branches missed.">                                if (!preferredName.equalsIgnoreCase(existing.getName())) {</span>
+<span class="nc" id="L214">                                    existing.setName(preferredName);</span>
+                                    try {
+<span class="nc" id="L216">                                        return categoryRepo.save(existing);</span>
+<span class="nc" id="L217">                                    } catch (DataIntegrityViolationException e) {</span>
+<span class="nc" id="L218">                                        return categoryRepo.findByUser_UserIdAndNameIgnoreCase(userId, preferredName)</span>
+<span class="nc" id="L219">                                                .orElse(existing);</span>
+                                    }
+                                }
+<span class="nc" id="L222">                                return existing;</span>
+                            })
+<span class="nc" id="L224">                            .orElseGet(() -&gt; {</span>
+<span class="fc" id="L225">                                Category c = new Category();</span>
+<span class="fc" id="L226">                                c.setUser(user);</span>
+<span class="fc" id="L227">                                c.setName(preferredName);</span>
+<span class="fc" id="L228">                                c.setSystem(true);</span>
+                                try {
+<span class="nc" id="L230">                                    return categoryRepo.save(c);</span>
+<span class="fc" id="L231">                                } catch (DataIntegrityViolationException e) {</span>
+<span class="pc" id="L232">                                    return categoryRepo.findByUser_UserIdAndNameIgnoreCase(userId, preferredName)</span>
+<span class="pc" id="L233">                                            .orElseThrow(() -&gt; new RuntimeException(&quot;System category creation failed&quot;));</span>
+                                }
+                            });
+<span class="nc" id="L236">                    return category;</span>
+                });
+    }
+
+    private GoalResponse toResponse(Goal goal) {
+<span class="fc" id="L241">        GoalResponse res = new GoalResponse();</span>
+<span class="fc" id="L242">        res.setId(goal.getId());</span>
+<span class="fc" id="L243">        res.setName(goal.getName());</span>
+<span class="fc" id="L244">        res.setTargetAmount(goal.getTargetAmount());</span>
+<span class="fc" id="L245">        res.setCurrentAmount(goal.getCurrentAmount());</span>
+<span class="fc" id="L246">        res.setDueDate(goal.getDueDate());</span>
+<span class="fc" id="L247">        res.setStatus(goal.getStatus().name());</span>
+<span class="pc bpc" id="L248" title="1 of 4 branches missed.">        if (goal.getTargetAmount() != null &amp;&amp; goal.getTargetAmount().compareTo(BigDecimal.ZERO) &gt; 0) {</span>
+<span class="fc" id="L249">            res.setProgress(goal.getCurrentAmount()</span>
+<span class="fc" id="L250">                    .divide(goal.getTargetAmount(), 2, RoundingMode.HALF_UP)</span>
+<span class="fc" id="L251">                    .multiply(BigDecimal.valueOf(100))</span>
+<span class="fc" id="L252">                    .doubleValue());</span>
+        } else {
+<span class="fc" id="L254">            res.setProgress(0.0);</span>
+        }
+<span class="fc" id="L256">        return res;</span>
+    }
+
+    @Override
+    public GoalResponse get(Long userId, Long goalId) {
+<span class="nc" id="L261">        return getGoalById(userId, goalId);</span>
+    }
+
+    @Override
+    public GoalResponse getGoalById(Long userId, Long goalId) {
+<span class="fc" id="L266">        Goal goal = goalRepo.findById(goalId)</span>
+<span class="fc" id="L267">                .orElseThrow(() -&gt; new IllegalArgumentException(&quot;Goal not found&quot;));</span>
+<span class="fc bfc" id="L268" title="All 2 branches covered.">        if (!goal.getUser().getUserId().equals(userId)) {</span>
+<span class="fc" id="L269">            throw new IllegalArgumentException(&quot;Goal not owned by user&quot;);</span>
+        }
+<span class="fc" id="L271">        return toResponse(goal);</span>
+    }
+
+    @Override
+    public GoalResponse update(Long userId, Long goalId, UpdateGoalRequest request) {
+<span class="nc" id="L276">        GoalRequest goalRequest = new GoalRequest();</span>
+<span class="nc" id="L277">        goalRequest.setName(request.getName());</span>
+<span class="nc" id="L278">        goalRequest.setTargetAmount(request.getTargetAmount());</span>
+<span class="nc" id="L279">        goalRequest.setDueDate(request.getDueDate());</span>
+<span class="nc" id="L280">        return updateGoal(userId, goalId, goalRequest);</span>
+    }
+
+    @Override
+    public GoalResponse updateGoal(Long userId, Long goalId, GoalRequest request) {
+<span class="fc" id="L285">        Goal goal = goalRepo.findById(goalId)</span>
+<span class="fc" id="L286">                .orElseThrow(() -&gt; new IllegalArgumentException(&quot;Goal not found&quot;));</span>
+<span class="fc bfc" id="L287" title="All 2 branches covered.">        if (!goal.getUser().getUserId().equals(userId)) {</span>
+<span class="fc" id="L288">            throw new IllegalArgumentException(&quot;Goal not owned by user&quot;);</span>
+        }
+
+<span class="pc bpc" id="L291" title="2 of 4 branches missed.">        if (request.getName() != null &amp;&amp; !request.getName().isBlank()) {</span>
+<span class="fc" id="L292">            boolean exists = goalRepo.existsByUser_UserIdAndNameIgnoreCase(userId, request.getName());</span>
+<span class="pc bpc" id="L293" title="1 of 4 branches missed.">            if (exists &amp;&amp; !goal.getName().equalsIgnoreCase(request.getName())) {</span>
+<span class="fc" id="L294">                throw new IllegalArgumentException(&quot;Goal with name '&quot; + request.getName() + &quot;' already exists&quot;);</span>
+            }
+<span class="fc" id="L296">            goal.setName(request.getName());</span>
+        }
+<span class="pc bpc" id="L298" title="1 of 2 branches missed.">        if (request.getTargetAmount() != null) {</span>
+<span class="fc" id="L299">            goal.setTargetAmount(request.getTargetAmount());</span>
+        }
+<span class="pc bpc" id="L301" title="1 of 2 branches missed.">        if (request.getDueDate() != null) {</span>
+<span class="fc" id="L302">            goal.setDueDate(request.getDueDate());</span>
+        }
+
+<span class="fc" id="L305">        return toResponse(goalRepo.save(goal));</span>
+    }
+
+    @Override
+    public void delete(Long userId, Long goalId) {
+<span class="nc" id="L310">        deleteGoal(userId, goalId);</span>
+<span class="nc" id="L311">    }</span>
+
+    @Override
+    @Transactional
+    public void deleteGoal(Long userId, Long goalId) {
+<span class="fc" id="L316">        Goal goal = goalRepo.findById(goalId)</span>
+<span class="fc" id="L317">                .orElseThrow(() -&gt; new IllegalArgumentException(&quot;Goal not found&quot;));</span>
+<span class="fc bfc" id="L318" title="All 2 branches covered.">        if (!goal.getUser().getUserId().equals(userId)) {</span>
+<span class="fc" id="L319">            throw new IllegalArgumentException(&quot;Goal not owned by user&quot;);</span>
+        }
+
+<span class="fc" id="L322">        Account goalAccount = goal.getLinkedAccount();</span>
+<span class="pc bpc" id="L323" title="1 of 2 branches missed.">        BigDecimal remain = goal.getCurrentAmount() == null ? BigDecimal.ZERO : goal.getCurrentAmount();</span>
+
+<span class="fc bfc" id="L325" title="All 2 branches covered.">        if (remain.compareTo(BigDecimal.ZERO) &gt; 0) {</span>
+<span class="fc" id="L326">            Account cashAccount = accountRepo.findFirstByUser_UserIdAndAccountType(userId, AccountType.CASH)</span>
+<span class="fc" id="L327">                    .orElseGet(() -&gt; {</span>
+<span class="nc" id="L328">                        Account acc = new Account();</span>
+<span class="nc" id="L329">                        acc.setUser(goal.getUser());</span>
+<span class="nc" id="L330">                        acc.setName(&quot;Cash&quot;);</span>
+<span class="nc" id="L331">                        acc.setAccountType(AccountType.CASH);</span>
+<span class="nc" id="L332">                        acc.setBalance(BigDecimal.ZERO);</span>
+<span class="nc" id="L333">                        return accountRepo.save(acc);</span>
+                    });
+
+<span class="fc" id="L336">            Category xferCat = ensureGoalTransferCategory(goal.getUser());</span>
+<span class="fc" id="L337">            LocalDateTime now = LocalDateTime.now();</span>
+
+<span class="pc bpc" id="L339" title="1 of 2 branches missed.">            String goalName = goal.getName() != null ? goal.getName() : &quot;Goal&quot;;</span>
+<span class="fc" id="L340">            Transfer transfer = new Transfer();</span>
+<span class="fc" id="L341">            transfer.setAccountFrom(goalAccount);</span>
+<span class="fc" id="L342">            transfer.setAccountTo(cashAccount);</span>
+<span class="fc" id="L343">            transfer.setAmount(remain);</span>
+<span class="fc" id="L344">            transfer.setCreatedAt(LocalDateTime.now());</span>
+<span class="fc" id="L345">            transferRepo.save(transfer);</span>
+
+            // Goal → Cash: Expense
+<span class="fc" id="L348">            CashFlow out = new CashFlow();</span>
+<span class="fc" id="L349">            out.setAccount(goalAccount);</span>
+<span class="fc" id="L350">            out.setCategory(xferCat);</span>
+<span class="fc" id="L351">            out.setType(CashFlowType.Expense);</span>
+<span class="fc" id="L352">            out.setAmount(remain);</span>
+<span class="fc" id="L353">            out.setOccurredAt(now);</span>
+<span class="fc" id="L354">            out.setDescription(&quot;Goal refund to cash from &quot; + goalName);</span>
+<span class="fc" id="L355">            cashFlowRepo.save(out);</span>
+
+            // Cash ← Goal: Income
+<span class="fc" id="L358">            CashFlow in = new CashFlow();</span>
+<span class="fc" id="L359">            in.setAccount(cashAccount);</span>
+<span class="fc" id="L360">            in.setCategory(xferCat);</span>
+<span class="fc" id="L361">            in.setType(CashFlowType.Income);</span>
+<span class="fc" id="L362">            in.setAmount(remain);</span>
+<span class="fc" id="L363">            in.setOccurredAt(now);</span>
+<span class="fc" id="L364">            in.setDescription(&quot;Goal refund received from &quot; + goalName);</span>
+<span class="fc" id="L365">            cashFlowRepo.save(in);</span>
+
+
+<span class="fc" id="L368">            goalAccount.setBalance(goalAccount.getBalance().subtract(remain));</span>
+<span class="fc" id="L369">            accountRepo.save(goalAccount);</span>
+
+<span class="fc" id="L371">            cashAccount.setBalance(cashAccount.getBalance().add(remain));</span>
+<span class="fc" id="L372">            accountRepo.save(cashAccount);</span>
+
+<span class="fc" id="L374">            goal.setCurrentAmount(BigDecimal.ZERO);</span>
+        }
+
+<span class="fc" id="L377">        goalRepo.delete(goal);</span>
+<span class="fc" id="L378">    }</span>
+
+    @Override
+    public List&lt;CashFlow&gt; getContributions(Long userId, Long goalId, LocalDate from, LocalDate to) {
+<span class="fc" id="L382">        Goal goal = goalRepo.findById(goalId)</span>
+<span class="fc" id="L383">                .orElseThrow(() -&gt; new IllegalArgumentException(&quot;Goal not found&quot;));</span>
+<span class="fc bfc" id="L384" title="All 2 branches covered.">        if (!goal.getUser().getUserId().equals(userId)) {</span>
+<span class="fc" id="L385">            throw new IllegalArgumentException(&quot;Goal not owned by user&quot;);</span>
+        }
+<span class="fc bfc" id="L387" title="All 2 branches covered.">        LocalDateTime fromDate = (from != null)</span>
+<span class="fc" id="L388">                ? from.atStartOfDay()</span>
+<span class="fc" id="L389">                : LocalDate.of(1970, 1, 1).atStartOfDay();</span>
+<span class="fc bfc" id="L390" title="All 2 branches covered.">        LocalDateTime toDate = (to != null)</span>
+<span class="fc" id="L391">                ? to.atTime(LocalTime.MAX)</span>
+<span class="fc" id="L392">                : LocalDate.of(3000, 12, 31).atTime(LocalTime.MAX);</span>
+
+<span class="fc" id="L394">        return cashFlowRepo.findByUserCategoryPeriodAndOptionalType(</span>
+                userId,
+<span class="fc" id="L396">                ensureGoalTransferCategory(goal.getUser()).getCategoryId(),</span>
+                fromDate,
+                toDate,
+                null
+        );
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

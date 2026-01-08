@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ExpenseController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">project</a> &gt; <a href="index.source.html" class="el_package">com.example.budgettracker.controller</a> &gt; <span class="el_source">ExpenseController.java</span></div><h1>ExpenseController.java</h1><pre class="source lang-java linenums">package com.example.budgettracker.controller;
+
+import com.example.budgettracker.dto.ExpenseRequest;
+import com.example.budgettracker.dto.ExpenseResponse;
+import com.example.budgettracker.service.ExpenseService;
+import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import java.util.List;
+
+/**
+ * FR-7: Expense Recording Controller
+ * Handles HTTP requests for expense transactions
+ */
+@RestController
+@RequestMapping(&quot;/api/expenses&quot;)
+public class ExpenseController extends BaseController {
+
+    private final ExpenseService expenseService;
+
+<span class="nc" id="L22">    public ExpenseController(ExpenseService expenseService) {</span>
+<span class="nc" id="L23">        this.expenseService = expenseService;</span>
+<span class="nc" id="L24">    }</span>
+
+    /**
+     * POST /api/expenses
+     * Records a new expense transaction
+     * @param authHeader Authorization header with Bearer token
+     * @param request expense details (validated)
+     * @return expense confirmation
+     */
+    @PostMapping
+    public ResponseEntity&lt;ExpenseResponse&gt; addExpense(
+            @RequestHeader(&quot;Authorization&quot;) String authHeader,
+            @Valid @RequestBody ExpenseRequest request) {
+        try {
+<span class="nc" id="L38">            Long userId = getUserIdFromToken(authHeader);</span>
+<span class="nc" id="L39">            ExpenseResponse response = expenseService.recordExpense(userId, request);</span>
+<span class="nc" id="L40">            return ResponseEntity.ok(response);</span>
+<span class="nc" id="L41">        } catch (IllegalArgumentException e) {</span>
+            // Authentication/authorization errors
+<span class="nc" id="L43">            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(</span>
+<span class="nc" id="L44">                ExpenseResponse.builder()</span>
+<span class="nc" id="L45">                    .message(&quot;Error: &quot; + e.getMessage())</span>
+<span class="nc" id="L46">                    .build()</span>
+            );
+<span class="nc" id="L48">        } catch (RuntimeException e) {</span>
+            // Handle business logic errors (insufficient balance, category not found, etc.)
+<span class="nc" id="L50">            return ResponseEntity.badRequest().body(</span>
+<span class="nc" id="L51">                ExpenseResponse.builder()</span>
+<span class="nc" id="L52">                    .message(&quot;Error: &quot; + e.getMessage())</span>
+<span class="nc" id="L53">                    .build()</span>
+            );
+        }
+    }
+
+    /**
+     * GET /api/expenses
+     * Retrieves all expense transactions for the authenticated user
+     * @param authHeader Authorization header with Bearer token
+
+     * @return list of user's expenses
+     */
+    @GetMapping
+    public ResponseEntity&lt;List&lt;ExpenseResponse&gt;&gt; getAllExpenses(
+            @RequestHeader(&quot;Authorization&quot;) String authHeader) {
+        try {
+<span class="nc" id="L69">            Long userId = getUserIdFromToken(authHeader);</span>
+<span class="nc" id="L70">            List&lt;ExpenseResponse&gt; expenseList = expenseService.getAllExpenses(userId);</span>
+<span class="nc" id="L71">            return ResponseEntity.ok(expenseList);</span>
+<span class="nc" id="L72">        } catch (IllegalArgumentException e) {</span>
+<span class="nc" id="L73">          return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();</span>
+<span class="nc" id="L74">       } catch (RuntimeException e) {</span>
+<span class="nc" id="L75">          return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();</span>
+       }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GoalController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">project</a> &gt; <a href="index.source.html" class="el_package">com.example.budgettracker.controller</a> &gt; <span class="el_source">GoalController.java</span></div><h1>GoalController.java</h1><pre class="source lang-java linenums">package com.example.budgettracker.controller;
+
+import com.example.budgettracker.dto.Goal.GoalRequest;
+import com.example.budgettracker.dto.Goal.GoalResponse;
+import com.example.budgettracker.dto.Goal.ContributionRequest;
+import com.example.budgettracker.dto.Goal.ContributionResponse;
+import com.example.budgettracker.model.CashFlow;
+import com.example.budgettracker.service.GoalService;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.net.URI;
+import java.time.LocalDate;
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * GoalController
+ */
+@Validated
+@RestController
+@RequestMapping(&quot;/api/goals&quot;)
+public class GoalController extends BaseController {
+
+<span class="nc" id="L37">    private static final Logger logger = LoggerFactory.getLogger(GoalController.class);</span>
+
+    private final GoalService goalService;
+
+<span class="nc" id="L41">    public GoalController(GoalService goalService) {</span>
+<span class="nc" id="L42">        this.goalService = goalService;</span>
+<span class="nc" id="L43">    }</span>
+
+    // Helper for extracting user ID from Authorization header
+    private Long getUserId(String authHeader) {
+<span class="nc" id="L47">        return getUserIdFromToken(authHeader);</span>
+    }
+
+    // ===== Create Goal =====
+    @PostMapping
+    public ResponseEntity&lt;GoalResponse&gt; createGoal(
+            @RequestHeader(&quot;Authorization&quot;) String authHeader,
+            @RequestBody GoalRequest request) {
+
+<span class="nc" id="L56">        Long userId = getUserId(authHeader);</span>
+<span class="nc" id="L57">        GoalResponse created = goalService.createGoal(userId, request);</span>
+
+<span class="nc" id="L59">        URI location = ServletUriComponentsBuilder.fromCurrentRequest()</span>
+<span class="nc" id="L60">                .path(&quot;/{id}&quot;)</span>
+<span class="nc" id="L61">                .buildAndExpand(created.getId())</span>
+<span class="nc" id="L62">                .toUri();</span>
+
+<span class="nc" id="L64">        return ResponseEntity.created(location).body(created);</span>
+    }
+
+    // ===== Get All Goals =====
+    @GetMapping
+    public ResponseEntity&lt;?&gt; getAllGoals(
+            @RequestHeader(value = &quot;Authorization&quot;, required = false) String authHeader,
+            HttpServletRequest request) {
+
+<span class="nc" id="L73">        Long userId = null;</span>
+
+        // Try token first
+<span class="nc bnc" id="L76" title="All 4 branches missed.">        if (authHeader != null &amp;&amp; !authHeader.isBlank()) {</span>
+            try {
+<span class="nc" id="L78">                userId = getUserId(authHeader);</span>
+<span class="nc" id="L79">            } catch (RuntimeException ex) {</span>
+                // invalid token -&gt; respond 401
+<span class="nc" id="L81">                logger.warn(&quot;Invalid Authorization token provided: {}&quot;, ex.getMessage());</span>
+<span class="nc" id="L82">                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)</span>
+<span class="nc" id="L83">                        .body(Map.of(&quot;error&quot;, &quot;Invalid Authorization token&quot;));</span>
+<span class="nc" id="L84">            }</span>
+        }
+
+        // If no token, try session (JSESSIONID)
+<span class="nc bnc" id="L88" title="All 2 branches missed.">        if (userId == null) {</span>
+<span class="nc" id="L89">            HttpSession session = request.getSession(false);</span>
+<span class="nc bnc" id="L90" title="All 2 branches missed.">            if (session != null) {</span>
+<span class="nc" id="L91">                Object uidObj = session.getAttribute(&quot;userId&quot;); // adjust key based on your session usage</span>
+<span class="nc bnc" id="L92" title="All 2 branches missed.">                if (uidObj instanceof Long) {</span>
+<span class="nc" id="L93">                    userId = (Long) uidObj;</span>
+<span class="nc bnc" id="L94" title="All 2 branches missed.">                } else if (uidObj instanceof Integer) {</span>
+<span class="nc" id="L95">                    userId = ((Integer) uidObj).longValue();</span>
+                }
+            }
+        }
+
+<span class="nc bnc" id="L100" title="All 2 branches missed.">        if (userId == null) {</span>
+<span class="nc" id="L101">            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)</span>
+<span class="nc" id="L102">                    .body(Map.of(&quot;error&quot;, &quot;Not authenticated&quot;));</span>
+        }
+
+<span class="nc" id="L105">        List&lt;GoalResponse&gt; goals = goalService.getAllGoals(userId);</span>
+<span class="nc" id="L106">        return ResponseEntity.ok(goals);</span>
+    }
+
+    // ===== Get Single Goal =====
+    @GetMapping(&quot;/{id}&quot;)
+    public ResponseEntity&lt;GoalResponse&gt; getGoal(
+            @RequestHeader(&quot;Authorization&quot;) String authHeader,
+            @PathVariable Long id) {
+
+<span class="nc" id="L115">        Long userId = getUserId(authHeader);</span>
+<span class="nc" id="L116">        return ResponseEntity.ok(goalService.getGoalById(userId, id));</span>
+    }
+
+    // ===== Update Goal (Partial) =====
+    @PatchMapping(&quot;/{id}&quot;)
+    public ResponseEntity&lt;GoalResponse&gt; updateGoal(
+            @RequestHeader(&quot;Authorization&quot;) String authHeader,
+            @PathVariable Long id,
+            @RequestBody GoalRequest request) {
+
+<span class="nc" id="L126">        Long userId = getUserId(authHeader);</span>
+<span class="nc" id="L127">        return ResponseEntity.ok(goalService.updateGoal(userId, id, request));</span>
+    }
+
+    // ===== Delete Goal =====
+    @DeleteMapping(&quot;/{id}&quot;)
+    public ResponseEntity&lt;Void&gt; deleteGoal(
+            @RequestHeader(&quot;Authorization&quot;) String authHeader,
+            @PathVariable Long id) {
+
+<span class="nc" id="L136">        Long userId = getUserId(authHeader);</span>
+<span class="nc" id="L137">        goalService.deleteGoal(userId, id);</span>
+<span class="nc" id="L138">        return ResponseEntity.noContent().build();</span>
+    }
+
+    // ===== Contribute to Goal =====
+    @PostMapping(&quot;/contribute&quot;)
+    public ResponseEntity&lt;ContributionResponse&gt; contribute(
+            @RequestHeader(&quot;Authorization&quot;) String authHeader,
+            @RequestBody ContributionRequest request) {
+
+<span class="nc" id="L147">        Long userId = getUserId(authHeader);</span>
+<span class="nc" id="L148">        ContributionResponse resp = goalService.contributeToGoal(userId, request);</span>
+<span class="nc" id="L149">        return ResponseEntity.ok(resp);</span>
+    }
+
+    // ===== Get Contributions =====
+    @GetMapping(&quot;/{id}/contributions&quot;)
+    public ResponseEntity&lt;List&lt;CashFlow&gt;&gt; getContributions(
+            @RequestHeader(&quot;Authorization&quot;) String authHeader,
+            @PathVariable Long id,
+            @RequestParam(required = false) LocalDate from,
+            @RequestParam(required = false) LocalDate to) {
+
+<span class="nc" id="L160">        Long userId = getUserId(authHeader);</span>
+<span class="nc" id="L161">        return ResponseEntity.ok(goalService.getContributions(userId, id, from, to));</span>
+    }
+
+    // ---------- Temporary debug endpoint (local use only) ----------
+    // Remove this before deploying to prod
+    @GetMapping(&quot;/debug/session-info&quot;)
+    public ResponseEntity&lt;Map&lt;String, Object&gt;&gt; debugSessionInfo(HttpServletRequest request) {
+<span class="nc" id="L168">        Map&lt;String, Object&gt; out = new HashMap&lt;&gt;();</span>
+
+<span class="nc" id="L170">        HttpSession session = request.getSession(false);</span>
+<span class="nc bnc" id="L171" title="All 2 branches missed.">        if (session == null) {</span>
+<span class="nc" id="L172">            out.put(&quot;sessionPresent&quot;, false);</span>
+        } else {
+<span class="nc" id="L174">            out.put(&quot;sessionPresent&quot;, true);</span>
+<span class="nc" id="L175">            out.put(&quot;sessionId&quot;, session.getId());</span>
+
+<span class="nc" id="L177">            Map&lt;String, Object&gt; attrs = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L178">            Enumeration&lt;String&gt; names = session.getAttributeNames();</span>
+<span class="nc bnc" id="L179" title="All 2 branches missed.">            while (names.hasMoreElements()) {</span>
+<span class="nc" id="L180">                String name = names.nextElement();</span>
+<span class="nc" id="L181">                Object value = session.getAttribute(name);</span>
+<span class="nc bnc" id="L182" title="All 2 branches missed.">                attrs.put(name, value != null ? value.toString() : null);</span>
+<span class="nc" id="L183">            }</span>
+<span class="nc" id="L184">            out.put(&quot;sessionAttributes&quot;, attrs);</span>
+        }
+
+        // SecurityContext info (if Spring Security is in use)
+        try {
+<span class="nc" id="L189">            var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();</span>
+<span class="nc bnc" id="L190" title="All 2 branches missed.">            if (auth == null) {</span>
+<span class="nc" id="L191">                out.put(&quot;securityContext&quot;, &quot;null&quot;);</span>
+            } else {
+<span class="nc" id="L193">                Map&lt;String, Object&gt; sc = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L194">                sc.put(&quot;authenticated&quot;, auth.isAuthenticated());</span>
+<span class="nc bnc" id="L195" title="All 2 branches missed.">                sc.put(&quot;principalClass&quot;, auth.getPrincipal() != null ? auth.getPrincipal().getClass().getName() : null);</span>
+<span class="nc bnc" id="L196" title="All 2 branches missed.">                sc.put(&quot;principalToString&quot;, auth.getPrincipal() != null ? auth.getPrincipal().toString() : null);</span>
+<span class="nc" id="L197">                sc.put(&quot;authorities&quot;, auth.getAuthorities().toString());</span>
+<span class="nc" id="L198">                out.put(&quot;securityContext&quot;, sc);</span>
+            }
+<span class="nc" id="L200">        } catch (Exception e) {</span>
+<span class="nc" id="L201">            out.put(&quot;securityContext&quot;, &quot;error: &quot; + e.getMessage());</span>
+<span class="nc" id="L202">        }</span>
+
+<span class="nc" id="L204">        return ResponseEntity.ok(out);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>
