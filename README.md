@@ -4,7 +4,7 @@
     <h3 align="center">OVER-SAVE</h3>
     </i>
     <p align="center">
-        TUT02-03 &middot; ELEC5619<br/>
+        
         A proactive, gamified budgeting companion built with Spring Boot.
     </p>
 </div>
