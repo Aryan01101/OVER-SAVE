@@ -117,14 +117,13 @@ Visit our [API documentation](API.md) page for more details on our REST API.
 
 # Contact
 
-Created for ELEC5619: Object Oriented Application Frameworks at The University of Sydney, Semester Two 2025.
-
 ```
-| name            | SID       | Unikey   |
-|-----------------|-----------|----------|
-| Antriksh Dhand  | 510415022 | adha5655 |
-| Kartik Nair     | 510611749 | knai5306 |
-| Taozhao Chen    | 510019015 | tche8294 |
-| Joey Chen       | 520076428 | wche9073 |
-| Aryan Adhikari  | 510615596 | aadh9995 |
+| name            |
+|-----------------|
+| Aryan Adhikari  |
+| Antriksh Dhand  |
+| Kartik Nair     |
+| Taozhao Chen    |
+| Joey Chen       |
+
 ```
