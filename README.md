@@ -5,7 +5,7 @@
     </i>
     <p align="center">
         
-        A proactive, gamified budgeting companion built with Spring Boot.
+ A proactive, gamified budgeting companion built with Spring Boot.
     </p>
 </div>
 
